@@ -1,0 +1,2732 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>동영상 링크 Referer 매니저</title>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .main-wrapper {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+
+        .sidebar {
+            width: 220px;
+            flex-shrink: 0;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            overflow-y: auto;
+            max-height: 80vh;
+        }
+
+        .sidebar-title {
+            padding: 15px;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 2px solid #eee;
+            font-size: 14px;
+            position: sticky;
+            top: 0;
+            background: white;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.3s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sidebar-title:hover {
+            background: #f5f5f5;
+        }
+
+        .sidebar-toggle {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .sidebar-list.collapsed {
+            display: none;
+        }
+
+        .sidebar-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .sidebar-item {
+            padding: 12px 15px;
+            cursor: pointer;
+            transition: background 0.3s, border-left 0.3s;
+            border-left: 3px solid transparent;
+            font-size: 14px;
+            color: #555;
+        }
+
+        .sidebar-item:hover {
+            background: #f5f5f5;
+        }
+
+        .sidebar-item.active {
+            background: #e6ebff;
+            border-left-color: #667eea;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 0;
+        }
+
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .header-button {
+            padding: 10px 20px;
+            background: white;
+            color: #667eea;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .header-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .global-section {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            padding: 30px;
+            margin-bottom: 30px;
+            border-left: 4px solid #667eea;
+        }
+
+        .global-section h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+
+        .input-section {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group:last-child {
+            margin-bottom: 0;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        input[type="text"],
+        input[type="file"],
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        input[type="text"]:focus,
+        input[type="file"]:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        .input-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .subtitle-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 15px;
+            align-items: flex-end;
+        }
+
+        .subtitle-input-wrapper {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .subtitle-checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+            margin-bottom: 0;
+        }
+
+        .subtitle-checkbox-label input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .thumbnail-upload-area {
+            border: 2px dashed #ddd;
+            border-radius: 4px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #fafafa;
+        }
+
+        .thumbnail-upload-area:hover {
+            border-color: #667eea;
+            background: #f0f0ff;
+        }
+
+        .thumbnail-upload-area.dragover {
+            border-color: #667eea;
+            background: #e6ebff;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .thumbnail-upload-area input[type="file"] {
+            display: none;
+        }
+
+        .thumbnail-preview {
+            margin-top: 10px;
+            max-width: 100%;
+            max-height: 150px;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .thumbnail-preview.show {
+            display: block;
+        }
+
+        .thumbnail-info {
+            font-size: 12px;
+            color: #666;
+            margin-top: 8px;
+        }
+
+        .thumbnail-clear-btn {
+            display: none;
+            margin-top: 8px;
+            padding: 6px 12px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .thumbnail-clear-btn.show {
+            display: inline-block;
+        }
+
+        /* 배우 뱃지 스타일 */
+        .actor-badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            margin-right: 6px;
+            margin-bottom: 6px;
+        }
+
+        .actor-badges {
+            margin-top: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        /* 수정 모드 버튼 */
+        .btn-edit {
+            background: #17a2b8;
+        }
+
+        .btn-edit:hover {
+            background: #138496;
+        }
+
+        .modal-section-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        /* 별점 스타일 */
+        .rating-stars {
+            display: flex;
+            gap: 8px;
+            font-size: 28px;
+        }
+
+        .rating-star {
+            cursor: pointer;
+            transition: transform 0.2s;
+            user-select: none;
+        }
+
+        .rating-star:hover {
+            transform: scale(1.2);
+        }
+
+        .rating-display {
+            font-size: 20px;
+            color: #ffc107;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            box-shadow: 0 5px 20px rgba(108, 117, 125, 0.4);
+        }
+
+        .list-section {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            padding: 30px;
+        }
+
+        .list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #eee;
+        }
+
+        .list-header h2 {
+            color: #333;
+            font-size: 20px;
+        }
+
+        .list-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .list-actions button {
+            padding: 8px 16px;
+            font-size: 14px;
+            flex: none;
+            width: auto;
+        }
+
+        .video-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .video-item {
+            display: grid;
+            grid-template-columns: 50px 320px 1fr;
+            gap: 15px;
+            align-items: center;
+            padding: 15px;
+            border: 1px solid #eee;
+            border-radius: 6px;
+            transition: background 0.3s;
+        }
+
+        .video-item:hover {
+            background: #f8f9fa;
+        }
+
+        .checkbox-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .thumbnail {
+            width: 320px;
+            height: 180px;
+            border-radius: 4px;
+            background: #f0f0f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            font-size: 12px;
+            color: #999;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+            position: relative;
+        }
+
+        .thumbnail:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .thumbnail-title {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            padding: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            text-align: center;
+            word-break: break-word;
+            max-height: 50%;
+            overflow: hidden;
+        }
+
+        .video-info {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .video-title {
+            font-weight: 600;
+            color: #333;
+            font-size: 15px;
+        }
+
+        .video-link {
+            color: #667eea;
+            text-decoration: none;
+            font-size: 12px;
+            word-break: break-all;
+            transition: color 0.3s;
+        }
+
+        .video-link:hover {
+            color: #764ba2;
+            text-decoration: underline;
+        }
+
+        .video-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+            background: #dc3545;
+            border: none;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.3s;
+            flex: none;
+            width: auto;
+        }
+
+        .btn-small:hover {
+            background: #c82333;
+        }
+
+        /* 모달 스타일 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 0;
+            border-radius: 8px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 800px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: slideUp 0.3s;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            color: #333;
+            margin: 0;
+            font-size: 20px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            color: #999;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-close:hover {
+            color: #333;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .modal-section {
+            margin-bottom: 20px;
+        }
+
+        .modal-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .modal-label {
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 8px;
+            display: block;
+            font-size: 14px;
+        }
+
+        .modal-image {
+            width: 650px;
+            height: 923px;
+            border-radius: 4px;
+            object-fit: cover;
+            margin: 0 auto 10px;
+            display: block;
+        }
+
+        .modal-text {
+            background: #f5f5f5;
+            padding: 12px;
+            border-radius: 4px;
+            word-break: break-all;
+            font-size: 13px;
+            color: #333;
+            font-family: 'Courier New', monospace;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+
+        .modal-actions button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        .btn-copy {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-copy:hover {
+            background: #764ba2;
+        }
+
+        .btn-delete {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-delete:hover {
+            background: #c82333;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #999;
+            padding: 40px 20px;
+        }
+
+        .message {
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 14px;
+            display: none;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            display: block;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            display: block;
+        }
+
+        @media (max-width: 1200px) {
+            .video-item {
+                grid-template-columns: 50px 250px 1fr;
+            }
+
+            .thumbnail {
+                width: 250px;
+                height: 140px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-wrapper {
+                flex-direction: column;
+                gap: 20px;
+            }
+
+            .sidebar {
+                width: 100%;
+                max-height: 200px;
+            }
+
+            .input-row {
+                grid-template-columns: 1fr;
+            }
+
+            .video-item {
+                grid-template-columns: 50px 1fr;
+                gap: 10px;
+            }
+
+            .thumbnail {
+                width: 150px;
+                height: 85px;
+            }
+
+            .modal-content {
+                width: 95%;
+                max-height: 95vh;
+            }
+
+            .modal-image {
+                width: 100%;
+                height: auto;
+                max-width: 650px;
+            }
+        }
+
+        /* 모바일 레이아웃 (핸드폰) */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .container {
+                max-width: 100%;
+                margin: 0;
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 15px;
+                padding: 15px;
+            }
+
+            .header h1 {
+                font-size: 18px;
+                margin: 0;
+            }
+
+            .header p {
+                font-size: 12px;
+                margin: 5px 0 0 0;
+            }
+
+            .header-buttons {
+                flex-wrap: wrap;
+                gap: 8px;
+                width: 100%;
+            }
+
+            .header-button {
+                flex: 1;
+                min-width: 100px;
+                font-size: 12px;
+                padding: 10px 8px;
+                height: auto;
+            }
+
+            .main-wrapper {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .sidebar {
+                width: 100%;
+                max-height: none;
+                display: block;
+                order: -1;
+                margin-bottom: 15px;
+                overflow-x: auto;
+                overflow-y: hidden;
+                background: #f8f9fa;
+                border-radius: 8px;
+                padding: 0;
+            }
+
+            .sidebar-title {
+                min-width: 150px;
+                display: inline-block;
+                padding: 12px 15px;
+                background: white;
+                border-bottom: 3px solid transparent;
+                cursor: pointer;
+                font-size: 13px;
+            }
+
+            .sidebar-title.active {
+                border-bottom-color: #667eea;
+                background: #f0f4ff;
+            }
+
+            .sidebar-list {
+                max-height: 250px;
+                overflow-y: auto;
+                padding: 10px 0;
+            }
+
+            .video-list {
+                flex: 1;
+                order: 1;
+            }
+
+            .video-item {
+                flex-direction: column;
+                gap: 0;
+                padding: 0;
+                background: white;
+                border-radius: 12px;
+                overflow: hidden;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+                margin-bottom: 15px;
+                transition: transform 0.3s, box-shadow 0.3s;
+            }
+
+            .video-item:active {
+                transform: scale(0.98);
+            }
+
+            .thumbnail {
+                width: 100%;
+                height: 280px;
+                object-fit: cover;
+                display: block;
+            }
+
+            .thumbnail-title {
+                display: none;
+            }
+
+            .video-info {
+                width: 100%;
+                padding: 12px;
+                background: white;
+            }
+
+            .video-title {
+                font-size: 12px;
+                line-height: 1.5;
+                margin: 8px 0;
+                color: #555;
+            }
+
+            .btn-small {
+                padding: 11px 12px;
+                font-size: 12px;
+                flex: 1 !important;
+                margin-top: 0 !important;
+                font-weight: 600;
+                border-radius: 6px;
+                border: none;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+
+            .btn-small:active {
+                transform: scale(0.95);
+                opacity: 0.9;
+            }
+
+            .checkbox-wrapper {
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                z-index: 10;
+            }
+
+            .checkbox-wrapper input {
+                width: 20px;
+                height: 20px;
+                cursor: pointer;
+            }
+
+            .video-list:first-child {
+                order: 1;
+            }
+
+            /* 비디오 리스트 그리드 */
+            .video-list {
+                display: grid;
+                grid-template-columns: 1fr;
+                gap: 0;
+            }
+
+            /* 모달 최적화 */
+            .modal-content {
+                width: 95% !important;
+                max-width: 95vw;
+                margin: auto;
+            }
+
+            .modal-header {
+                padding: 15px;
+            }
+
+            .modal-header h2 {
+                font-size: 18px;
+            }
+
+            .modal-body {
+                padding: 15px;
+            }
+
+            .modal-label {
+                font-size: 13px;
+                font-weight: 600;
+            }
+
+            input, textarea, select {
+                font-size: 16px !important;
+                padding: 12px !important;
+            }
+
+            .btn-copy, .btn-delete {
+                padding: 15px 12px;
+                font-size: 14px;
+                min-height: 44px;
+            }
+
+            .rating-star {
+                font-size: 28px;
+                cursor: pointer;
+            }
+
+            /* 헤더 버튼 터치 친화적 */
+            .header-button {
+                min-height: 44px;
+                padding: 12px 10px;
+            }
+
+            .sidebar-item {
+                padding: 15px;
+                font-size: 14px;
+            }
+
+            .sidebar-title {
+                padding: 15px;
+                font-size: 14px;
+            }
+        }
+
+        /* 매우 작은 화면 (작은 핸드폰) */
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 16px;
+            }
+
+            .header-button {
+                font-size: 11px;
+                padding: 8px 6px;
+                min-width: 80px;
+            }
+
+            .video-item {
+                padding: 8px;
+            }
+
+            .thumbnail {
+                height: 120px;
+            }
+
+            .modal-content {
+                width: 98% !important;
+            }
+
+            input, textarea, select {
+                font-size: 16px !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 로그인 화면 -->
+    <div id="loginScreen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; z-index: 10000;">
+        <div style="background: white; padding: 40px; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); width: 100%; max-width: 400px; margin: 20px;">
+            <h2 style="text-align: center; margin-bottom: 30px; color: #333;">🔐 로그인</h2>
+
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #555;">이메일</label>
+                <input type="email" id="loginEmail" placeholder="이메일 주소" style="width: 100%; padding: 12px; border: 2px solid #667eea; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #555;">비밀번호</label>
+                <input type="password" id="loginPassword" placeholder="비밀번호" style="width: 100%; padding: 12px; border: 2px solid #667eea; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
+            </div>
+
+            <div id="loginMessage" style="margin-bottom: 15px; padding: 12px; border-radius: 8px; text-align: center; font-size: 14px; display: none;"></div>
+
+            <button onclick="handleLogin()" style="width: 100%; padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 16px; transition: transform 0.2s;">로그인</button>
+        </div>
+    </div>
+
+    <!-- 앱 컨테이너 -->
+    <div id="appContainer" style="display: none;">
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>🎬 동영상 링크 Referer 매니저</h1>
+                <p>동영상 링크를 관리하고 referer를 자동으로 추가하세요</p>
+            </div>
+            <div class="header-buttons">
+                <button class="header-button" onclick="openRefererModal()">⚙️ Referer 설정</button>
+                <button class="header-button" onclick="openAddVideoModal()">➕ 동영상 추가</button>
+                <button class="header-button" onclick="handleLogout()" style="background: #ff6b6b;">🚪 로그아웃</button>
+            </div>
+        </div>
+
+        <div class="main-wrapper">
+            <!-- 검색창 -->
+            <div style="position: fixed; bottom: 20px; right: 20px; width: 250px; z-index: 999; background: white; border-radius: 12px; padding: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                <input
+                    type="text"
+                    id="searchInput"
+                    placeholder="🔍 품번 검색..."
+                    style="width: 100%; padding: 12px; border: 2px solid #667eea; border-radius: 8px; font-size: 13px; box-sizing: border-box;"
+                    onkeyup="searchByProductNumber(this.value)"
+                >
+            </div>
+
+            <!-- 왼쪽 사이드바: 배우 목록과 별점 목록 -->
+            <div class="sidebar">
+                <ul class="sidebar-list" style="margin-bottom: 10px;">
+                    <li class="sidebar-item" onclick="showAllVideos()" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-weight: 600; border-left-color: #667eea;">
+                        📺 전체 보기
+                        <span style="float: right; color: #fff;" id="totalCountDisplay">0개</span>
+                    </li>
+                </ul>
+
+                <div class="sidebar-title" onclick="toggleSidebarSection()">
+                    <span>🎭 배우</span>
+                    <span class="sidebar-toggle" id="sidebarToggleIcon">▼</span>
+                </div>
+                <ul class="sidebar-list" id="sidebarActorList">
+                    <li class="sidebar-item active" onclick="filterByActor('전체')">전체</li>
+                </ul>
+
+                <div class="sidebar-title" onclick="toggleRatingSection()" style="margin-top: 15px; border-top: 1px solid #ddd;">
+                    <span>⭐ 별점</span>
+                    <span class="sidebar-toggle" id="ratingToggleIcon">▶</span>
+                </div>
+                <ul class="sidebar-list collapsed" id="sidebarRatingList">
+                </ul>
+            </div>
+
+            <!-- 오른쪽 메인 콘텐츠 -->
+            <div class="main-content">
+
+        <div class="list-section">
+            <div class="list-header">
+                <h2>저장된 동영상 목록 (<span id="videoCount">0</span>)</h2>
+                <div class="list-actions">
+                    <button class="btn-secondary" onclick="downloadList()">다운로드</button>
+                    <button class="btn-secondary" onclick="clearChecked()">선택 항목 삭제</button>
+                </div>
+            </div>
+
+            <div class="video-list" id="videoList">
+                <div class="empty-state">저장된 동영상이 없습니다</div>
+            </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 세부정보 모달 -->
+    <div class="modal" id="detailModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">영상 세부정보</h2>
+                <button class="modal-close" onclick="closeModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-section" id="modalImageSection"></div>
+                <div class="modal-section">
+                    <label class="modal-label">배우</label>
+                    <div id="modalVideoTitle"></div>
+                </div>
+                <div class="modal-section">
+                    <label class="modal-label">별점</label>
+                    <div class="rating-stars" id="modalRatingStars" style="font-size: 32px; gap: 12px;">
+                    </div>
+                </div>
+                <div class="modal-section" id="modalContentSection"></div>
+                <div class="modal-section">
+                    <label class="modal-label">동영상 링크 (글로벌 Referer 포함)</label>
+                    <div class="modal-text" id="modalLink"></div>
+                </div>
+                <div class="modal-section" id="modalSubtitleSection"></div>
+                <div class="modal-actions">
+                    <button class="btn-copy" onclick="copyModalLink()">링크 복사</button>
+                    <button class="btn-edit btn-copy" onclick="openEditModal()">수정</button>
+                    <button class="btn-delete" onclick="deleteModalVideo()">삭제</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Referer 설정 모달 -->
+    <div class="modal" id="refererModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>⚙️ 설정</h2>
+                <button class="modal-close" onclick="closeRefererModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-section">
+                    <label class="modal-label">글로벌 Referer 텍스트</label>
+                    <textarea
+                        id="globalReferer"
+                        placeholder="모든 동영상 링크에 자동으로 추가될 referer 텍스트를 입력하세요"
+                        style="min-height: 100px;"
+                    ></textarea>
+                    <div style="font-size: 12px; color: #999; margin-top: 8px;">
+                        💡 이곳에 설정한 referer는 모든 동영상 링크에 자동으로 붙습니다
+                    </div>
+                </div>
+
+                <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
+                    <label class="modal-label">📥 목록 가져오기</label>
+                    <input type="file" id="jsonFileInput" accept=".json" style="margin-bottom: 10px;">
+                    <button class="btn-copy" onclick="importVideoList()" style="width: 100%; margin-bottom: 5px;">목록 불러오기</button>
+                    <div style="font-size: 12px; color: #999; margin-top: 8px;">
+                        💡 PC에서 다운로드한 JSON 파일을 여기서 업로드하면 동일한 목록을 로드합니다
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button class="btn-copy" onclick="saveReferer()">저장</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+    <!-- appContainer 종료 -->
+
+    <!-- 동영상 추가 모달 -->
+    <div class="modal" id="addVideoModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="addVideoTitle">➕ 동영상 추가</h2>
+                <button class="modal-close" onclick="closeAddVideoModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="addVideoMessage" class="message"></div>
+
+                <div class="modal-section">
+                    <label class="modal-label">동영상 링크</label>
+                    <input
+                        type="text"
+                        id="videoLink"
+                        placeholder="https://example.com/video"
+                    >
+                </div>
+
+                <div class="modal-section-group">
+                    <div class="modal-section">
+                        <label class="modal-label">품번</label>
+                        <input
+                            type="text"
+                            id="productNumber"
+                            placeholder="상품 번호 또는 ID"
+                        >
+                    </div>
+
+                    <div class="modal-section">
+                        <label class="modal-label">배우 이름</label>
+                        <input
+                            type="text"
+                            id="actorName"
+                            placeholder="배우 이름을 입력하세요 (여러 명일 경우 쉼표로 구분: 홍길동,이순신)"
+                        >
+                        <div style="font-size: 12px; color: #999; margin-top: 8px;">
+                            💡 쉼표(,)로 구분하여 여러 배우를 등록할 수 있습니다
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-section">
+                    <label class="modal-label">별점</label>
+                    <div class="rating-stars" id="ratingStars">
+                        <span class="rating-star" onclick="setRating(1)">☆</span>
+                        <span class="rating-star" onclick="setRating(2)">☆</span>
+                        <span class="rating-star" onclick="setRating(3)">☆</span>
+                        <span class="rating-star" onclick="setRating(4)">☆</span>
+                        <span class="rating-star" onclick="setRating(5)">☆</span>
+                    </div>
+                    <input type="hidden" id="videoRating" value="0">
+                    <div style="font-size: 14px; color: #666; margin-top: 8px;">
+                        현재 별점: <span id="ratingDisplay">0</span>점
+                    </div>
+                </div>
+
+                <div class="modal-section">
+                    <label class="modal-label">영상 내용</label>
+                    <textarea
+                        id="videoContent"
+                        placeholder="영상 내용을 입력하세요"
+                        style="min-height: 100px;"
+                    ></textarea>
+                </div>
+
+                <div class="modal-section-group">
+                    <div class="modal-section">
+                        <label class="modal-label">썸네일 이미지</label>
+                        <div class="thumbnail-upload-area" id="uploadArea">
+                            <div style="font-size: 24px; margin-bottom: 8px;">🖼️</div>
+                            <div style="font-weight: 600; color: #333;">이미지를 드래그하거나 클릭</div>
+                            <input
+                                type="file"
+                                id="videoThumbnail"
+                                accept="image/*"
+                            >
+                            <img id="thumbnailPreview" class="thumbnail-preview" alt="미리보기">
+                            <button type="button" class="thumbnail-clear-btn" id="clearThumbnailBtn" onclick="clearThumbnail()">제거</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-section">
+                    <label class="modal-label">자막 주소</label>
+                    <input
+                            type="text"
+                            id="subtitleUrl"
+                            placeholder="자막 파일 주소"
+                        >
+                        <label class="subtitle-checkbox-label" style="margin-top: 10px;">
+                            <input type="checkbox" id="subtitleEnabled">
+                            자막 다운로드 완료
+                        </label>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button class="btn-copy" id="addVideoBtn" onclick="window.currentEditingVideoId ? updateVideo() : addVideo()">추가</button>
+                    <button class="btn-delete" onclick="closeAddVideoModal()">취소</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase 설정
+        const firebaseConfig = {
+            apiKey: "AIzaSyAjWrJnTo7WiTN97KAyFP5R66PGLH1qq_w",
+            authDomain: "simssangreferer.firebaseapp.com",
+            databaseURL: "https://simssangreferer-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "simssangreferer",
+            storageBucket: "simssangreferer.firebasestorage.app",
+            messagingSenderId: "832680598640",
+            appId: "1:832680598640:web:28854dad3330deb47be8b5"
+        };
+
+        // Firebase 초기화 (나중에 DOMContentLoaded에서 실행)
+        let db = null;
+        let firebaseInitialized = false;
+
+        // localStorage 키 (백업용)
+        const STORAGE_KEY = 'videos_list';
+        const GLOBAL_REFERER_KEY = 'global_referer';
+
+        // 현재 필터 상태
+        let currentFilter = '전체';
+        let currentRatingFilter = null;
+        window.currentSearchQuery = '';
+
+        // 별점 설정 함수
+        function setRating(rating) {
+            document.getElementById('videoRating').value = rating;
+            document.getElementById('ratingDisplay').textContent = rating;
+
+            // 별 표시 업데이트
+            const stars = document.querySelectorAll('#ratingStars .rating-star');
+            stars.forEach((star, index) => {
+                if (index < rating) {
+                    star.textContent = '★';
+                    star.style.color = '#ffc107';
+                } else {
+                    star.textContent = '☆';
+                    star.style.color = 'inherit';
+                }
+            });
+        }
+
+        // 글로벌 Referer 가져오기 (Firebase 또는 localStorage)
+        function getGlobalReferer() {
+            if (!firebaseInitialized) {
+                return localStorage.getItem(GLOBAL_REFERER_KEY) || '';
+            }
+            // Firebase 버전은 실시간 리스너로 관리됨
+            return window.currentGlobalReferer || '';
+        }
+
+        // 글로벌 Referer 저장 (Firebase + localStorage)
+        function saveGlobalReferer(referer) {
+            localStorage.setItem(GLOBAL_REFERER_KEY, referer);
+            window.currentGlobalReferer = referer;
+
+            if (firebaseInitialized && db) {
+                firebase.database().ref('globalReferer').set(referer)
+                    .catch(error => console.error('Firebase 저장 실패:', error));
+            }
+        }
+
+        // 동영상 목록 가져오기 (Firebase 또는 localStorage)
+        function getVideos() {
+            if (!firebaseInitialized) {
+                const data = localStorage.getItem(STORAGE_KEY);
+                if (!data) return [];
+                try {
+                    return JSON.parse(data);
+                } catch (e) {
+                    console.error('localStorage 파싱 에러:', e);
+                    return [];
+                }
+            }
+            // Firebase 버전은 실시간 리스너로 관리됨
+            return window.currentVideos || [];
+        }
+
+        // 동영상 목록 저장 (Firebase 우선, localStorage 백업)
+        function saveVideos(videos) {
+            window.currentVideos = videos;
+
+            // Firebase 우선 저장
+            if (firebaseInitialized && db) {
+                const totalSize = JSON.stringify(videos).length;
+                console.log('[saveVideos] Firebase에 저장 중... 크기:', Math.round(totalSize / 1024), 'KB');
+
+                firebase.database().ref('videos').set(videos)
+                    .then(() => {
+                        console.log('✅ Firebase 저장 완료');
+                    })
+                    .catch(error => {
+                        console.error('❌ Firebase 저장 실패:', error.message);
+                        if (error.message.includes('PERMISSION_DENIED')) {
+                            console.error('   → 권한 문제: Firebase 보안 규칙 확인');
+                        } else if (error.message.includes('quota')) {
+                            console.error('   → 용량 초과: 이미지 크기 감소 필요');
+                        }
+                    });
+            } else {
+                // Firebase 미초기화 시에만 localStorage 사용
+                try {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(videos));
+                    console.log('[saveVideos] localStorage에 저장 완료');
+                } catch (error) {
+                    console.error('⚠️ localStorage 저장 실패:', error.message);
+                    console.log('💡 Firebase로 자동 저장되므로 문제없습니다');
+                }
+            }
+        }
+
+        // 동영상 추가 함수
+        async function addVideo() {
+            // 글로벌 Referer 먼저 확인
+            const globalReferer = getGlobalReferer();
+            console.log('[addVideo] globalReferer:', globalReferer);
+            if (!globalReferer || globalReferer.trim() === '') {
+                console.warn('[addVideo] Referer가 설정되지 않음');
+                showAddVideoMessage('❌ 글로벌 Referer가 설정되지 않았습니다. "⚙️ Referer 설정"을 먼저 해주세요.', 'error');
+                return;
+            }
+
+            const videoLink = document.getElementById('videoLink').value.trim();
+            const productNumber = document.getElementById('productNumber').value.trim();
+            const actorNameInput = document.getElementById('actorName').value.trim();
+            const videoContent = document.getElementById('videoContent').value.trim();
+            const rating = parseInt(document.getElementById('videoRating').value) || 0;
+            const subtitleUrl = document.getElementById('subtitleUrl').value.trim();
+            const subtitleEnabled = document.getElementById('subtitleEnabled').checked;
+
+            // 유효성 검사
+            if (!videoLink) {
+                showAddVideoMessage('❌ 동영상 링크를 입력해주세요.', 'error');
+                return;
+            }
+
+            if (!productNumber) {
+                showAddVideoMessage('❌ 품번을 입력해주세요.', 'error');
+                return;
+            }
+
+            if (!actorNameInput) {
+                showAddVideoMessage('❌ 배우 이름을 입력해주세요.', 'error');
+                return;
+            }
+
+            // 품번 중복 검사
+            if (getVideos().some(v => v.productNumber === productNumber)) {
+                showAddVideoMessage('⚠️ 이미 같은 품번의 동영상이 있습니다. 다른 품번을 입력해주세요.', 'error');
+                return;
+            }
+
+            // 배우 이름 파싱 (# 태그 vs 일반 입력)
+            let actors = [];
+            if (actorNameInput.includes('#')) {
+                // # 태그 방식: 공백 유지
+                actors = (actorNameInput.match(/#([^#,]*)/g) || [])
+                    .map(tag => tag.replace('#', '').trim())
+                    .filter(name => name.length > 0);
+            } else {
+                // 일반 방식: 쉼표로만 분리, 각 항목 내 공백 유지
+                actors = actorNameInput
+                    .split(',')
+                    .map(name => name.trim())
+                    .filter(name => name.length > 0);
+            }
+
+            // referer 자동 추가 (링크 뒤에 붙이기)
+            const finalLink = videoLink + globalReferer;
+
+            // 썸네일 처리 (로컬 Base64 저장)
+            let thumbnail = null;
+            const thumbnailInput = document.getElementById('videoThumbnail');
+            if (thumbnailInput.files.length > 0) {
+                thumbnail = await fileToBase64(thumbnailInput.files[0]);
+            }
+
+            // 동영상 객체 생성
+            const video = {
+                id: Date.now(),
+                productNumber: productNumber,
+                actors: actors,
+                content: videoContent,
+                rating: rating,
+                link: finalLink,
+                originalLink: videoLink,
+                thumbnail: thumbnail,
+                subtitleUrl: subtitleUrl,
+                subtitleEnabled: subtitleEnabled,
+                checked: false
+            };
+
+            // localStorage에서 목록 가져오기
+            const videos = getVideos();
+            videos.push(video);
+            saveVideos(videos);
+
+            // 입력 필드 초기화
+            document.getElementById('videoLink').value = '';
+            document.getElementById('productNumber').value = '';
+            document.getElementById('actorName').value = '';
+            document.getElementById('videoContent').value = '';
+            document.getElementById('videoRating').value = '0';
+            document.getElementById('subtitleUrl').value = '';
+            document.getElementById('subtitleEnabled').checked = false;
+            setRating(0);
+
+            // 리스트 업데이트
+            renderSidebar();
+            renderList();
+            closeAddVideoModal();
+        }
+
+        // 동영상 수정 함수
+        async function updateVideo() {
+            // 글로벌 Referer 먼저 확인
+            const globalReferer = getGlobalReferer();
+            if (!globalReferer || globalReferer.trim() === '') {
+                showAddVideoMessage('❌ 글로벌 Referer가 설정되지 않았습니다. "⚙️ Referer 설정"을 먼저 해주세요.', 'error');
+                return;
+            }
+
+            const videoLink = document.getElementById('videoLink').value.trim();
+            const productNumber = document.getElementById('productNumber').value.trim();
+            const actorNameInput = document.getElementById('actorName').value.trim();
+            const videoContent = document.getElementById('videoContent').value.trim();
+            const rating = parseInt(document.getElementById('videoRating').value) || 0;
+            const subtitleUrl = document.getElementById('subtitleUrl').value.trim();
+            const subtitleEnabled = document.getElementById('subtitleEnabled').checked;
+
+            // 유효성 검사
+            if (!videoLink) {
+                showAddVideoMessage('❌ 동영상 링크를 입력해주세요.', 'error');
+                return;
+            }
+
+            if (!productNumber) {
+                showAddVideoMessage('❌ 품번을 입력해주세요.', 'error');
+                return;
+            }
+
+            if (!actorNameInput) {
+                showAddVideoMessage('❌ 배우 이름을 입력해주세요.', 'error');
+                return;
+            }
+
+            // 배우 이름 파싱 (# 태그 vs 일반 입력)
+            let actors = [];
+            if (actorNameInput.includes('#')) {
+                // # 태그 방식: 공백 유지
+                actors = (actorNameInput.match(/#([^#,]*)/g) || [])
+                    .map(tag => tag.replace('#', '').trim())
+                    .filter(name => name.length > 0);
+            } else {
+                // 일반 방식: 쉼표로만 분리, 각 항목 내 공백 유지
+                actors = actorNameInput
+                    .split(',')
+                    .map(name => name.trim())
+                    .filter(name => name.length > 0);
+            }
+
+            // referer 적용
+            const finalLink = videoLink + globalReferer;
+
+            // 썸네일 처리 (로컬 Base64 저장)
+            let thumbnail = null;
+            const thumbnailInput = document.getElementById('videoThumbnail');
+            const videos = getVideos();
+            const oldVideo = videos.find(v => v.id === window.currentEditingVideoId);
+
+            if (thumbnailInput.files.length > 0) {
+                thumbnail = await fileToBase64(thumbnailInput.files[0]);
+            } else if (oldVideo && oldVideo.thumbnail) {
+                thumbnail = oldVideo.thumbnail;
+            }
+
+            // 기존 영상 업데이트
+            const index = videos.findIndex(v => v.id === window.currentEditingVideoId);
+            if (index !== -1) {
+                videos[index] = {
+                    ...videos[index],
+                    productNumber: productNumber,
+                    actors: actors,
+                    content: videoContent,
+                    rating: rating,
+                    link: finalLink,
+                    originalLink: videoLink,
+                    thumbnail: thumbnail,
+                    subtitleUrl: subtitleUrl,
+                    subtitleEnabled: subtitleEnabled
+                };
+                saveVideos(videos);
+
+                // 리스트 업데이트
+                renderSidebar();
+                renderList();
+                window.currentEditingVideoId = null;
+
+                // 바로 팝업 닫기
+                closeAddVideoModal();
+            } else {
+                showAddVideoMessage('영상을 찾을 수 없습니다.', 'error');
+            }
+        }
+
+        // 파일을 Base64로 변환 (이미지 압축)
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+
+                        const maxWidth = 280;
+                        let width = img.width;
+                        let height = img.height;
+
+                        if (width > maxWidth) {
+                            height = Math.round((height * maxWidth) / width);
+                            width = maxWidth;
+                        }
+
+                        canvas.width = width;
+                        canvas.height = height;
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        const compressed = canvas.toDataURL('image/jpeg', 0.4);
+                        console.log('[fileToBase64] 압축 완료:', Math.round(compressed.length / 1024), 'KB');
+                        resolve(compressed);
+                    };
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // 썸네일 이미지 제거
+        function clearThumbnail() {
+            const preview = document.getElementById('thumbnailPreview');
+            const fileInput = document.getElementById('videoThumbnail');
+            const clearBtn = document.getElementById('clearThumbnailBtn');
+
+            if (preview) preview.src = '';
+            if (preview) preview.classList.remove('show');
+            if (clearBtn) clearBtn.classList.remove('show');
+            if (fileInput) fileInput.value = '';
+        }
+
+        // 현재 모달에서 표시 중인 비디오 ID
+        let currentModalVideoId = null;
+
+        // 모든 배우 목록 추출 (중복 제거)
+        function getAllActors() {
+            const videos = getVideos();
+            const actorSet = new Set();
+            videos.forEach(video => {
+                if (video.actors && Array.isArray(video.actors)) {
+                    video.actors.forEach(actor => {
+                        if (actor.trim()) actorSet.add(actor.trim());
+                    });
+                }
+            });
+            return Array.from(actorSet).sort();
+        }
+
+        // 모든 별점 추출 (0점 포함)
+        function getAllRatings() {
+            const videos = getVideos();
+            const ratingSet = new Set();
+            const hasUnrated = videos.some(video => !video.rating || video.rating === 0);
+
+            videos.forEach(video => {
+                if (video.rating && video.rating > 0) {
+                    ratingSet.add(video.rating);
+                }
+            });
+
+            const ratings = Array.from(ratingSet).sort((a, b) => b - a);
+            if (hasUnrated) {
+                ratings.push(0);
+            }
+            return ratings;
+        }
+
+        // 사이드바 배우 섹션 토글
+        function toggleSidebarSection() {
+            const actorList = document.getElementById('sidebarActorList');
+            const toggleIcon = document.getElementById('sidebarToggleIcon');
+
+            actorList.classList.toggle('collapsed');
+
+            if (actorList.classList.contains('collapsed')) {
+                toggleIcon.textContent = '▶';
+            } else {
+                toggleIcon.textContent = '▼';
+            }
+        }
+
+        // 사이드바 별점 섹션 토글
+        function toggleRatingSection() {
+            const ratingList = document.getElementById('sidebarRatingList');
+            const toggleIcon = document.getElementById('ratingToggleIcon');
+
+            ratingList.classList.toggle('collapsed');
+
+            if (ratingList.classList.contains('collapsed')) {
+                toggleIcon.textContent = '▶';
+            } else {
+                toggleIcon.textContent = '▼';
+            }
+        }
+
+        // 사이드바 렌더링
+        function renderSidebar() {
+            const actorList = document.getElementById('sidebarActorList');
+            const ratingList = document.getElementById('sidebarRatingList');
+            const actors = getAllActors();
+            const ratings = getAllRatings();
+            const videos = getVideos();
+
+            // 전체 보기 개수 업데이트
+            const totalCountDisplay = document.getElementById('totalCountDisplay');
+            if (totalCountDisplay) {
+                totalCountDisplay.textContent = videos.length + '개';
+            }
+
+            // 배우 리스트 렌더링
+            if (actorList) {
+                let actorHtml = '';
+                const totalCount = videos.length;
+                actorHtml += '<li class="sidebar-item' + (currentFilter === '전체' && !currentRatingFilter ? ' active' : '') + '" onclick="filterByActor(\'전체\')">전체<span style="float: right; color: #999;">' + totalCount + '개</span></li>';
+
+                actors.forEach(actor => {
+                    const count = videos.filter(v => v.actors && v.actors.includes(actor)).length;
+                    actorHtml += '<li class="sidebar-item' + (currentFilter === actor && !currentRatingFilter ? ' active' : '') + '" onclick="filterByActor(\'' + escapeHtml(actor) + '\')">' + escapeHtml(actor) + '<span style="float: right; color: #999;">' + count + '개</span></li>';
+                });
+
+                actorList.innerHTML = actorHtml;
+            }
+
+            // 별점 리스트 렌더링
+            if (ratingList) {
+                let ratingHtml = '';
+                ratings.forEach(rating => {
+                    let count, stars, displayText;
+                    if (rating === 0) {
+                        count = videos.filter(v => !v.rating || v.rating === 0).length;
+                        stars = '☆☆☆☆☆';
+                        displayText = '(0점)';
+                    } else {
+                        count = videos.filter(v => v.rating === rating).length;
+                        stars = '★'.repeat(rating) + '☆'.repeat(5 - rating);
+                        displayText = '(' + rating + '점)';
+                    }
+                    ratingHtml += '<li class="sidebar-item' + (currentRatingFilter === rating ? ' active' : '') + '" onclick="filterByRating(' + rating + ')" style="cursor: pointer;">' + stars + ' ' + displayText + '<span style="float: right; color: #999;">' + count + '개</span></li>';
+                });
+
+                ratingList.innerHTML = ratingHtml;
+            }
+        }
+
+        // 전체 동영상 보기
+        function showAllVideos() {
+            currentFilter = '전체';
+            currentRatingFilter = null;
+            window.currentVideoPage = 1;
+            renderSidebar();
+            renderList();
+        }
+
+        // 배우별 필터링
+        function filterByActor(actorName) {
+            currentFilter = actorName;
+            currentRatingFilter = null;
+            window.currentVideoPage = 1;
+            renderSidebar();
+            renderList();
+        }
+
+        // 별점별 필터링
+        function filterByRating(rating) {
+            currentRatingFilter = rating;
+            currentFilter = '전체';
+            window.currentVideoPage = 1;
+            renderSidebar();
+            renderList();
+        }
+
+        // 품번별 검색
+        function searchByProductNumber(query) {
+            window.currentSearchQuery = query.toLowerCase();
+            window.currentVideoPage = 1;
+            renderList();
+        }
+
+        // 리스트 렌더링
+        function renderList() {
+            const allVideos = getVideos();
+            const videoList = document.getElementById('videoList');
+            const videoCount = document.getElementById('videoCount');
+
+            // DOM 요소 없으면 조기 반환
+            if (!videoList || !videoCount) {
+                console.warn('videoList 또는 videoCount 요소가 없습니다');
+                return;
+            }
+
+            // 현재 필터에 맞는 영상만 필터링
+            let filteredVideos = allVideos;
+
+            // 배우 필터
+            if (currentFilter !== '전체') {
+                filteredVideos = filteredVideos.filter(video =>
+                    video.actors && Array.isArray(video.actors) && video.actors.includes(currentFilter)
+                );
+            }
+
+            // 별점 필터
+            if (currentRatingFilter !== null && currentRatingFilter !== undefined) {
+                if (currentRatingFilter === 0) {
+                    filteredVideos = filteredVideos.filter(video =>
+                        !video.rating || video.rating === 0
+                    );
+                } else {
+                    filteredVideos = filteredVideos.filter(video =>
+                        video.rating === currentRatingFilter
+                    );
+                }
+            }
+
+            // 품번 검색 필터
+            if (window.currentSearchQuery) {
+                filteredVideos = filteredVideos.filter(video =>
+                    video.productNumber && video.productNumber.toLowerCase().includes(window.currentSearchQuery)
+                );
+            }
+
+            // 정렬: 필터가 '전체'일 때는 최신순, 아니면 별점순
+            if (currentFilter === '전체' && (currentRatingFilter === null || currentRatingFilter === undefined)) {
+                filteredVideos.sort((a, b) => b.id - a.id);
+            } else {
+                filteredVideos.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+            }
+
+            videoCount.textContent = filteredVideos.length;
+
+            if (filteredVideos.length === 0) {
+                videoList.innerHTML = '<div class="empty-state">저장된 동영상이 없습니다</div>';
+                return;
+            }
+
+            // 페이지네이션
+            const itemsPerPage = 10;
+            const totalPages = Math.ceil(filteredVideos.length / itemsPerPage);
+            let currentPage = window.currentVideoPage || 1;
+            if (currentPage > totalPages) currentPage = totalPages;
+            window.currentVideoPage = currentPage;
+
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const paginatedVideos = filteredVideos.slice(startIndex, endIndex);
+
+            const videoHTML = paginatedVideos.map((video, index) => {
+                const productNum = video.productNumber || '미등록';
+                const actorNames = video.actors ? video.actors.join(', ') : '미분류';
+                const contentText = video.content || '내용 없음';
+                const ratingStars = video.rating ? '★'.repeat(video.rating) + '☆'.repeat(5 - video.rating) : '☆☆☆☆☆';
+                return `
+                <div class="video-item">
+                    <div class="checkbox-wrapper">
+                        <input
+                            type="checkbox"
+                            ${video.checked ? 'checked' : ''}
+                            onchange="toggleCheck(${video.id})"
+                        >
+                    </div>
+                    <div class="thumbnail" onclick="openModal(${video.id})">
+                        ${video.thumbnail ? `<img src="${video.thumbnail}" alt="썸네일" onerror="this.src='https://cors-anywhere.herokuapp.com/${video.thumbnail}'; this.onerror=function(){this.style.display='none';};">` : '이미지 없음'}
+                    </div>
+                    <div class="video-info">
+                        <div style="font-size: 14px; color: #ffc107; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+                            <span>${ratingStars}</span>
+                            <span style="font-size: 12px; color: #555; font-weight: 600;">${escapeHtml(productNum)}</span>
+                            <span style="font-size: 12px; color: #777;">|</span>
+                            <span style="font-size: 12px; color: #555;">${escapeHtml(actorNames)}</span>
+                        </div>
+                        <div class="video-title" style="font-size: 13px; color: #666; font-weight: normal; line-height: 1.5;">${escapeHtml(contentText)}</div>
+                        <div style="display: flex; gap: 5px; margin-top: 8px;">
+                            <button class="btn-small" style="background: #667eea; margin-top: 0; flex: 1;" onclick="openModal(${video.id})">세부정보</button>
+                            <button class="btn-small" style="background: #28a745; margin-top: 0; flex: 1;" onclick="copyModalLink(${video.id})">링크복사</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            }).join('');
+
+            // 비디오 목록 렌더링
+            videoList.innerHTML = videoHTML;
+
+            // 페이지네이션 버튼 추가
+            if (totalPages > 1) {
+                const paginationHTML = '<div style="display: flex; justify-content: center; gap: 5px; margin-top: 20px; padding: 15px; flex-wrap: wrap;">';
+                let pagination = paginationHTML;
+
+                // 이전 버튼
+                if (currentPage > 1) {
+                    pagination += `<button onclick="goToPage(${currentPage - 1})" style="padding: 8px 12px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer;">◀ 이전</button>`;
+                }
+
+                // 페이지 번호
+                for (let i = 1; i <= totalPages; i++) {
+                    if (i === currentPage) {
+                        pagination += `<button style="padding: 8px 12px; background: #764ba2; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">${i}</button>`;
+                    } else {
+                        pagination += `<button onclick="goToPage(${i})" style="padding: 8px 12px; background: #e9ecef; color: #555; border: none; border-radius: 4px; cursor: pointer;">${i}</button>`;
+                    }
+                }
+
+                // 다음 버튼
+                if (currentPage < totalPages) {
+                    pagination += `<button onclick="goToPage(${currentPage + 1})" style="padding: 8px 12px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer;">다음 ▶</button>`;
+                }
+
+                pagination += '</div>';
+                videoList.innerHTML += pagination;
+            }
+        }
+
+        // 페이지 이동 함수
+        function goToPage(page) {
+            window.currentVideoPage = page;
+            renderList();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // 체크박스 토글
+        function toggleCheck(id) {
+            const videos = getVideos();
+            const video = videos.find(v => v.id === id);
+            if (video) {
+                video.checked = !video.checked;
+                saveVideos(videos);
+                renderList();
+            }
+        }
+
+        // 모달에서 별점 업데이트 (같은 별점 클릭 시 0점 설정)
+        function updateVideoRating(id, rating) {
+            const videos = getVideos();
+            const video = videos.find(v => v.id === id);
+            if (video) {
+                // 같은 별점을 클릭하면 0점으로 토글
+                if (video.rating === rating) {
+                    video.rating = 0;
+                } else {
+                    video.rating = rating;
+                }
+                saveVideos(videos);
+                renderList();
+                renderSidebar();
+                closeModal();
+            }
+        }
+
+        // 이미지 로드 헬퍼 (CORS 처리)
+        function loadImageWithFallback(imageUrl) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+
+                img.onload = () => resolve(imageUrl);
+                img.onerror = () => {
+                    const corsProxy = 'https://cors-anywhere.herokuapp.com/';
+                    resolve(corsProxy + imageUrl);
+                };
+
+                img.src = imageUrl;
+            });
+        }
+
+        // 모달 열기
+        function openModal(id) {
+            const videos = getVideos();
+            const video = videos.find(v => v.id === id);
+
+            if (!video) return;
+
+            currentModalVideoId = id;
+
+            const productNum = video.productNumber || '미등록';
+            const actorNames = video.actors ? video.actors.join(', ') : '미분류';
+            const modalTitle = `${productNum} | ${actorNames}`;
+
+            // 모달 제목
+            document.getElementById('modalTitle').textContent = modalTitle;
+
+            // 이미지 섹션
+            const imageSection = document.getElementById('modalImageSection');
+            if (video.thumbnail) {
+                loadImageWithFallback(video.thumbnail).then(imageUrl => {
+                    imageSection.innerHTML = `<img src="${imageUrl}" alt="썸네일" class="modal-image" onerror="this.style.display='none';">`;
+                });
+            } else {
+                imageSection.innerHTML = '';
+            }
+
+            // 배우 이름 (뱃지 형태)
+            const actorBadgesHtml = video.actors && video.actors.length > 0
+                ? '<div class="actor-badges">' + video.actors.map(actor => `<span class="actor-badge">${escapeHtml(actor)}</span>`).join('') + '</div>'
+                : '';
+            document.getElementById('modalVideoTitle').innerHTML = actorBadgesHtml;
+
+            // 별점 렌더링
+            const modalRatingStars = document.getElementById('modalRatingStars');
+            let starsHtml = '';
+
+            // 0점(초기화) 버튼
+            const isZeroRating = !video.rating || video.rating === 0;
+            starsHtml += `<span class="rating-star" onclick="updateVideoRating(${id}, 0)" style="${isZeroRating ? 'color: #999; font-weight: bold;' : 'color: #ccc;'}" title="초기화">✕</span>`;
+            starsHtml += `<span style="margin: 0 8px; color: #ddd;">|</span>`;
+
+            // 1-5점
+            for (let i = 1; i <= 5; i++) {
+                const filled = i <= (video.rating || 0);
+                starsHtml += `<span class="rating-star" onclick="updateVideoRating(${id}, ${i})" style="${filled ? 'color: #ffc107;' : ''}">${filled ? '★' : '☆'}</span>`;
+            }
+            modalRatingStars.innerHTML = starsHtml;
+
+            // 영상 내용 섹션
+            const contentSection = document.getElementById('modalContentSection');
+            if (video.content) {
+                contentSection.innerHTML = `
+                    <label class="modal-label">영상 내용</label>
+                    <div class="modal-text" style="white-space: pre-wrap; line-height: 1.6;">${escapeHtml(video.content)}</div>
+                `;
+            } else {
+                contentSection.innerHTML = '';
+            }
+
+            // 링크
+            document.getElementById('modalLink').innerHTML = `<a href="${escapeHtml(video.link)}" target="_blank" style="color: #667eea; text-decoration: none;">${escapeHtml(video.link)}</a>`;
+
+            // 자막 섹션
+            const subtitleSection = document.getElementById('modalSubtitleSection');
+            let subtitleHTML = '';
+
+            // 자막 사용 여부 표시
+            subtitleHTML += `
+                <label class="modal-label">자막</label>
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                    <input type="checkbox" id="modalSubtitleEnabled" ${video.subtitleEnabled ? 'checked' : ''} disabled>
+                    <span style="color: #666; font-size: 14px;">자막 다운로드 완료</span>
+                </div>
+            `;
+
+            // 자막 주소 표시
+            if (video.subtitleUrl) {
+                subtitleHTML += `
+                    <label class="modal-label">자막 주소</label>
+                    <div class="modal-text"><a href="${escapeHtml(video.subtitleUrl)}" target="_blank" style="color: #667eea; text-decoration: none;">${escapeHtml(video.subtitleUrl)}</a></div>
+                `;
+            }
+
+            subtitleSection.innerHTML = subtitleHTML;
+
+            // 모달 표시
+            document.getElementById('detailModal').classList.add('show');
+        }
+
+        // 모달 닫기
+        function closeModal() {
+            document.getElementById('detailModal').classList.remove('show');
+            currentModalVideoId = null;
+        }
+
+        // 모달 링크 복사
+        function copyModalLink(id) {
+            const videos = getVideos();
+            const videoId = id || currentModalVideoId;
+            const video = videos.find(v => v.id === videoId);
+
+            if (!video) {
+                showMessage('❌ 영상을 찾을 수 없습니다.', 'error');
+                return;
+            }
+
+            const linkToCopy = video.link;
+
+            // 방법 1: Clipboard API (최신 방식)
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(linkToCopy)
+                    .then(() => {
+                        showMessage('✅ 링크가 복사되었습니다!', 'success');
+                    })
+                    .catch(() => {
+                        fallbackCopy(linkToCopy);
+                    });
+            } else {
+                // 방법 2: 폴백 (구형 브라우저)
+                fallbackCopy(linkToCopy);
+            }
+        }
+
+        // 클립보드 복사 폴백
+        function fallbackCopy(text) {
+            try {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.focus();
+                textarea.select();
+
+                const success = document.execCommand('copy');
+                document.body.removeChild(textarea);
+
+                if (success) {
+                    showMessage('✅ 링크가 복사되었습니다!', 'success');
+                } else {
+                    showMessage('⚠️ 복사 실패. 수동으로 복사해주세요.', 'error');
+                }
+            } catch (err) {
+                console.error('복사 오류:', err);
+                showMessage('⚠️ 복사 실패. 수동으로 복사해주세요.', 'error');
+            }
+        }
+
+        // 모달에서 삭제
+        function deleteModalVideo() {
+            deleteVideo(currentModalVideoId);
+            closeModal();
+        }
+
+        // 동영상 삭제
+        function deleteVideo(id) {
+            if (confirm('정말로 이 항목을 삭제하시겠습니까?')) {
+                const videos = getVideos();
+                const filtered = videos.filter(v => v.id !== id);
+                saveVideos(filtered);
+                renderList();
+                showMessage('항목이 삭제되었습니다.', 'success');
+            }
+        }
+
+        // 선택된 항목 삭제
+        function clearChecked() {
+            const videos = getVideos();
+            const checkedCount = videos.filter(v => v.checked).length;
+
+            if (checkedCount === 0) {
+                showMessage('삭제할 항목을 선택해주세요.', 'error');
+                return;
+            }
+
+            if (confirm(`${checkedCount}개의 항목을 삭제하시겠습니까?`)) {
+                const filtered = videos.filter(v => !v.checked);
+                saveVideos(filtered);
+                renderList();
+                showMessage('선택된 항목이 삭제되었습니다.', 'success');
+            }
+        }
+
+        // 목록 다운로드 (JSON)
+        function downloadList() {
+            try {
+                const videos = getVideos();
+                console.log('[downloadList] 저장된 동영상 수:', videos.length);
+
+                if (videos.length === 0) {
+                    showMessage('❌ 다운로드할 항목이 없습니다. 먼저 동영상을 추가해주세요.', 'error');
+                    return;
+                }
+
+                // 모든 정보 포함 (썸네일 포함)
+                const globalReferer = getGlobalReferer();
+                const dataToDownload = videos.map(v => ({
+                    id: v.id,
+                    productNumber: v.productNumber,
+                    actors: v.actors,
+                    content: v.content,
+                    rating: v.rating,
+                    link: v.link,
+                    originalLink: v.originalLink,
+                    thumbnail: v.thumbnail,
+                    subtitleUrl: v.subtitleUrl,
+                    subtitleEnabled: v.subtitleEnabled,
+                    checked: v.checked
+                }));
+
+                const downloadData = {
+                    globalReferer: globalReferer,
+                    videos: dataToDownload
+                };
+
+                const dataStr = JSON.stringify(downloadData, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json; charset=utf-8' });
+                const url = URL.createObjectURL(dataBlob);
+                const link = document.createElement('a');
+                link.href = url;
+                const fileName = `동영상_목록_${new Date().toLocaleDateString().replace(/\./g, '-')}.json`;
+                link.download = fileName;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+
+                console.log('[downloadList] 다운로드 완료:', fileName);
+                showMessage('✅ 목록이 다운로드되었습니다!', 'success');
+            } catch (error) {
+                console.error('[downloadList] 에러:', error);
+                showMessage('❌ 다운로드 실패: ' + error.message, 'error');
+            }
+        }
+
+        // 메시지 표시 (토스트 스타일)
+        function showMessage(text, type) {
+            const toast = document.createElement('div');
+            toast.textContent = text;
+            toast.className = `message ${type}`;
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 12px 20px;
+                border-radius: 4px;
+                z-index: 10000;
+                font-size: 14px;
+                font-weight: 600;
+                animation: fadeIn 0.3s;
+            `;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'fadeOut 0.3s';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // JSON 파일에서 동영상 목록 가져오기
+        function importVideoList() {
+            const fileInput = document.getElementById('jsonFileInput');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                showMessage('❌ 파일을 선택해주세요.', 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+
+                    // 파일 형식 확인
+                    if (data.videos && Array.isArray(data.videos)) {
+                        // 새로운 형식 (globalReferer 포함)
+                        saveVideos(data.videos);
+                        if (data.globalReferer) {
+                            saveGlobalReferer(data.globalReferer);
+                            const refererEl = document.getElementById('globalReferer');
+                            if (refererEl) {
+                                refererEl.value = data.globalReferer;
+                            }
+                        }
+                    } else if (Array.isArray(data)) {
+                        // 이전 형식 (동영상 배열만)
+                        saveVideos(data);
+                    } else {
+                        showMessage('❌ 올바른 형식의 JSON 파일이 아닙니다.', 'error');
+                        return;
+                    }
+
+                    renderSidebar();
+                    renderList();
+                    fileInput.value = '';
+                    showMessage('✅ 목록을 불러왔습니다!', 'success');
+                } catch (error) {
+                    showMessage('❌ 파일 읽기 오류: ' + error.message, 'error');
+                    console.error('JSON 파싱 에러:', error);
+                }
+            };
+
+            reader.onerror = () => {
+                showMessage('❌ 파일을 읽을 수 없습니다.', 'error');
+            };
+
+            reader.readAsText(file);
+        }
+
+        // HTML 이스케이프
+        function escapeHtml(text) {
+            if (!text) return '';
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        // 썸네일 이미지 처리
+        function handleThumbnailFile(file) {
+            if (!file.type.startsWith('image/')) {
+                showMessage('이미지 파일만 추가할 수 있습니다.', 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const preview = document.getElementById('thumbnailPreview');
+                preview.src = e.target.result;
+                preview.classList.add('show');
+                document.getElementById('clearThumbnailBtn').classList.add('show');
+            };
+            reader.readAsDataURL(file);
+
+            // 파일 input에도 설정
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            document.getElementById('videoThumbnail').files = dataTransfer.files;
+        }
+
+        // 썸네일 이미지 제거
+        function clearThumbnail() {
+            const preview = document.getElementById('thumbnailPreview');
+            const fileInput = document.getElementById('videoThumbnail');
+            const clearBtn = document.getElementById('clearThumbnailBtn');
+
+            preview.src = '';
+            preview.classList.remove('show');
+            clearBtn.classList.remove('show');
+            fileInput.value = '';
+        }
+
+        // 드래그앤드랍 이벤트 처리
+        function setupDragAndDrop() {
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('videoThumbnail');
+
+            // 클릭 시 파일 선택
+            uploadArea.addEventListener('click', () => {
+                fileInput.click();
+            });
+
+            // 파일 input 변경
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleThumbnailFile(e.target.files[0]);
+                }
+            });
+
+            // 드래그 오버
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                uploadArea.classList.add('dragover');
+            });
+
+            // 드래그 리브
+            uploadArea.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                uploadArea.classList.remove('dragover');
+            });
+
+            // 드롭
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                uploadArea.classList.remove('dragover');
+
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    // 첫 번째 이미지 파일 찾기
+                    for (let i = 0; i < files.length; i++) {
+                        if (files[i].type.startsWith('image/')) {
+                            handleThumbnailFile(files[i]);
+                            return;
+                        }
+                    }
+
+                    // 이미지 파일이 없으면 URL로부터 이미지 가져오기 시도
+                    const url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
+                    if (url && isValidImageUrl(url)) {
+                        fetchImageFromUrl(url);
+                        return;
+                    }
+
+                    showMessage('이미지 파일을 드래그해주세요.', 'error');
+                }
+            });
+
+            // 브라우저 기본 드래그 동작 방지
+            document.addEventListener('dragover', (e) => {
+                e.preventDefault();
+            });
+
+            document.addEventListener('drop', (e) => {
+                e.preventDefault();
+            });
+        }
+
+        // URL이 이미지인지 확인
+        function isValidImageUrl(url) {
+            const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
+            const lowerUrl = url.toLowerCase();
+            return imageExtensions.some(ext => lowerUrl.includes(ext)) || lowerUrl.includes('image');
+        }
+
+        // URL에서 이미지 가져오기
+        function fetchImageFromUrl(url) {
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) throw new Error('이미지를 불러올 수 없습니다');
+                    return response.blob();
+                })
+                .then(blob => {
+                    const file = new File([blob], 'thumbnail.png', { type: blob.type });
+                    handleThumbnailFile(file);
+                    showMessage('이미지가 추가되었습니다!', 'success');
+                })
+                .catch(error => {
+                    // CORS 에러인 경우 다른 방법 시도
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.onload = () => {
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        ctx.drawImage(img, 0, 0);
+                        canvas.toBlob(blob => {
+                            const file = new File([blob], 'thumbnail.png', { type: 'image/png' });
+                            handleThumbnailFile(file);
+                            showMessage('이미지가 추가되었습니다!', 'success');
+                        });
+                    };
+                    img.onerror = () => {
+                        showMessage('이미지를 불러올 수 없습니다. 파일로 추가해주세요.', 'error');
+                    };
+                    img.src = url;
+                });
+        }
+
+        // 모달 열기/닫기 함수들
+        function openRefererModal() {
+            const refererEl = document.getElementById('globalReferer');
+            if (refererEl) {
+                refererEl.value = getGlobalReferer();
+            }
+            const refererModal = document.getElementById('refererModal');
+            if (refererModal) {
+                refererModal.classList.add('show');
+            }
+        }
+
+        function closeRefererModal() {
+            document.getElementById('refererModal').classList.remove('show');
+        }
+
+        function saveReferer() {
+            const refererEl = document.getElementById('globalReferer');
+            if (!refererEl) {
+                showMessage('❌ Referer 요소를 찾을 수 없습니다.', 'error');
+                return;
+            }
+            const referer = refererEl.value;
+            if (!referer) {
+                showMessage('❌ Referer 텍스트를 입력해주세요.', 'error');
+                return;
+            }
+            saveGlobalReferer(referer);
+            showMessage('✅ 글로벌 Referer가 저장되었습니다!', 'success');
+        }
+
+        function openAddVideoModal() {
+            // Referer 설정 여부 확인
+            const globalReferer = getGlobalReferer();
+            if (!globalReferer) {
+                alert('먼저 "⚙️ Referer 설정"에서 글로벌 Referer를 입력해주세요.');
+                return;
+            }
+
+            // 폼 초기화
+            document.getElementById('videoLink').value = '';
+            document.getElementById('productNumber').value = '';
+            document.getElementById('actorName').value = '';
+            document.getElementById('videoContent').value = '';
+            document.getElementById('videoRating').value = '0';
+            document.getElementById('subtitleUrl').value = '';
+            document.getElementById('subtitleEnabled').checked = false;
+            document.getElementById('videoThumbnail').value = '';
+            document.getElementById('addVideoMessage').textContent = '';
+            clearThumbnail();
+            setRating(0);
+            document.getElementById('addVideoTitle').textContent = '➕ 동영상 추가';
+            document.getElementById('addVideoBtn').textContent = '추가';
+
+            window.currentEditingVideoId = null;
+            document.getElementById('addVideoModal').classList.add('show');
+        }
+
+        function closeAddVideoModal() {
+            document.getElementById('addVideoModal').classList.remove('show');
+            window.currentEditingVideoId = null;
+        }
+
+        // 수정 모달 열기
+        function openEditModal() {
+            // currentModalVideoId를 먼저 저장 (closeModal에서 null로 설정되므로)
+            const videoIdToEdit = currentModalVideoId;
+            closeModal();
+
+            const videos = getVideos();
+            const video = videos.find(v => v.id === videoIdToEdit);
+            if (!video) return;
+
+            window.currentEditingVideoId = videoIdToEdit;
+
+            // 먼저 폼 초기화
+            document.getElementById('videoThumbnail').value = '';
+            document.getElementById('addVideoMessage').textContent = '';
+            clearThumbnail();
+
+            // 폼에 데이터 로드
+            document.getElementById('videoLink').value = video.originalLink;
+            document.getElementById('productNumber').value = video.productNumber || '';
+            document.getElementById('actorName').value = (video.actors || []).join(', ');
+            document.getElementById('videoContent').value = video.content || '';
+            document.getElementById('subtitleUrl').value = video.subtitleUrl || '';
+            document.getElementById('subtitleEnabled').checked = video.subtitleEnabled || false;
+            setRating(video.rating || 0);
+
+            // 썸네일 표시
+            if (video.thumbnail) {
+                const preview = document.getElementById('thumbnailPreview');
+                preview.src = video.thumbnail;
+                preview.onerror = function() {
+                    this.src = 'https://cors-anywhere.herokuapp.com/' + video.thumbnail;
+                    this.onerror = null;
+                };
+                preview.classList.add('show');
+                document.getElementById('clearThumbnailBtn').classList.add('show');
+            }
+
+            document.getElementById('addVideoTitle').textContent = '✏️ 동영상 수정';
+            document.getElementById('addVideoBtn').textContent = '수정';
+
+            document.getElementById('addVideoModal').classList.add('show');
+        }
+
+        // Firebase 실시간 리스너 설정
+        function setupFirebaseListeners() {
+            if (!db) return;
+
+            // 동영상 목록 감시
+            firebase.database().ref('videos').on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    window.currentVideos = data;
+                    console.log('📥 Firebase에서 동영상 수신:', data.length, '개');
+                    renderSidebar();
+                    renderList();
+                } else {
+                    window.currentVideos = [];
+                }
+            }, (error) => {
+                console.warn('Firebase 동영상 감시 실패:', error);
+            });
+
+            // 글로벌 Referer 감시
+            firebase.database().ref('globalReferer').on('value', (snapshot) => {
+                const referer = snapshot.val();
+                if (referer) {
+                    window.currentGlobalReferer = referer;
+                    document.getElementById('globalReferer').value = referer;
+                    console.log('📥 Firebase에서 Referer 수신:', referer);
+                }
+            }, (error) => {
+                console.warn('Firebase Referer 감시 실패:', error);
+            });
+        }
+
+        // 메시지 표시 (addVideoModal용)
+        function showAddVideoMessage(text, type) {
+            const messageEl = document.getElementById('addVideoMessage');
+            if (!messageEl) {
+                showMessage(text, type);
+                return;
+            }
+            messageEl.textContent = text;
+            messageEl.className = `message ${type}`;
+            setTimeout(() => {
+                messageEl.className = 'message';
+            }, 3000);
+        }
+
+        // 페이지 로드 시 리스트 표시
+        document.addEventListener('DOMContentLoaded', () => {
+            // Firebase 초기화
+            try {
+                firebase.initializeApp(firebaseConfig);
+                db = firebase.database();
+                firebaseInitialized = true;
+                console.log('✅ Firebase 초기화 완료');
+
+                // 로그인 상태 감시
+                firebase.auth().onAuthStateChanged(user => {
+                    if (user) {
+                        console.log('✅ 로그인됨:', user.email);
+                        document.getElementById('loginScreen').style.display = 'none';
+                        document.getElementById('appContainer').style.display = 'flex';
+                        setupFirebaseListeners();
+                    } else {
+                        console.log('⚠️ 로그인 필요');
+                        document.getElementById('loginScreen').style.display = 'flex';
+                        document.getElementById('appContainer').style.display = 'none';
+                    }
+                });
+
+                // Firebase 준비 완료 (로그인 후 setupFirebaseListeners 호출)
+            } catch (error) {
+                console.warn('Firebase 초기화 실패 (오프라인 모드):', error);
+                firebaseInitialized = false;
+            }
+
+            renderSidebar();
+            renderList();
+
+            // 글로벌 Referer 로드
+            const globalRefererEl = document.getElementById('globalReferer');
+            if (globalRefererEl) {
+                globalRefererEl.value = getGlobalReferer();
+            }
+
+            // 드래그앤드랍 설정
+            setupDragAndDrop();
+
+            // 모달 외부 클릭 시 닫기
+            ['detailModal', 'refererModal', 'addVideoModal'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('click', (e) => {
+                        if (e.target.id === id) {
+                            if (id === 'detailModal') closeModal();
+                            else if (id === 'refererModal') closeRefererModal();
+                            else if (id === 'addVideoModal') closeAddVideoModal();
+                        }
+                    });
+                }
+            });
+
+            // Enter 키로 추가
+            const videoLinkEl = document.getElementById('videoLink');
+            if (videoLinkEl) {
+                videoLinkEl.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') document.getElementById('actorName').focus();
+                });
+            }
+
+            const actorNameEl = document.getElementById('actorName');
+            if (actorNameEl) {
+                actorNameEl.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') document.getElementById('videoContent').focus();
+                });
+            }
+        });
+
+        // 로그인 함수
+        function handleLogin() {
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const messageEl = document.getElementById('loginMessage');
+
+            if (!email || !password) {
+                messageEl.textContent = '❌ 이메일과 비밀번호를 입력하세요';
+                messageEl.style.background = '#ffebee';
+                messageEl.style.color = '#c62828';
+                messageEl.style.display = 'block';
+                return;
+            }
+
+            firebase.auth().signInWithEmailAndPassword(email, password)
+                .then(user => {
+                    console.log('✅ 로그인 성공:', user.user.email);
+                    messageEl.textContent = '✅ 로그인 중...';
+                    messageEl.style.background = '#e8f5e9';
+                    messageEl.style.color = '#2e7d32';
+                    messageEl.style.display = 'block';
+                })
+                .catch(error => {
+                    console.error('❌ 로그인 실패:', error.message);
+                    messageEl.textContent = '❌ ' + error.message;
+                    messageEl.style.background = '#ffebee';
+                    messageEl.style.color = '#c62828';
+                    messageEl.style.display = 'block';
+                });
+        }
+
+        // Enter 키로 로그인
+        document.addEventListener('DOMContentLoaded', () => {
+            const emailInput = document.getElementById('loginEmail');
+            const passwordInput = document.getElementById('loginPassword');
+
+            if (emailInput) emailInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') handleLogin();
+            });
+            if (passwordInput) passwordInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') handleLogin();
+            });
+        });
+
+        // 로그아웃 함수
+        function handleLogout() {
+            firebase.auth().signOut().then(() => {
+                console.log('✅ 로그아웃 완료');
+                document.getElementById('loginEmail').value = '';
+                document.getElementById('loginPassword').value = '';
+            });
+        }
+    </script>
+</body>
+</html>
