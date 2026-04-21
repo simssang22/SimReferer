@@ -2610,6 +2610,10 @@
             try {
                 firebase.initializeApp(firebaseConfig);
                 db = firebase.database();
+
+                // 창을 닫으면 자동 로그아웃 (SESSION 모드 사용)
+                firebase.auth().setPersistence(firebase.auth.browserSessionPersistence);
+
                 firebaseInitialized = true;
                 console.log('✅ Firebase 초기화 완료');
 
