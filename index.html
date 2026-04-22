@@ -1963,6 +1963,13 @@
         function goToPage(page) {
             window.currentVideoPage = page;
             renderList();
+            // 페이지 이동 시 히스토리 저장
+            history.pushState({
+                page: page,
+                filter: currentFilter,
+                ratingFilter: currentRatingFilter,
+                type: 'pagination'
+            }, null);
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
@@ -2657,9 +2664,7 @@
         function goToPreviousPage() {
             const currentPage = getCurrentPage();
             if (currentPage > 1) {
-                window.currentVideoPage = currentPage - 1;
-                renderList();
-                window.scrollTo(0, 0);
+                goToPage(currentPage - 1);
                 return true;
             }
             return false;
@@ -2674,13 +2679,6 @@
                 if (state.modal === 'detail') closeModal();
                 else if (state.modal === 'referer') closeRefererModal();
                 else if (state.modal === 'addVideo') closeAddVideoModal();
-                // 팝업 닫은 후 현재 상태 다시 푸시 (히스토리 유지)
-                history.pushState({
-                    page: getCurrentPage(),
-                    filter: currentFilter,
-                    ratingFilter: currentRatingFilter,
-                    type: 'page'
-                }, null);
                 return;
             }
 
@@ -2693,36 +2691,32 @@
                 if (detailModal && detailModal.classList.contains('show')) closeModal();
                 else if (refererModal && refererModal.classList.contains('show')) closeRefererModal();
                 else if (addVideoModal && addVideoModal.classList.contains('show')) closeAddVideoModal();
-                // 팝업 닫은 후 현재 상태 다시 푸시 (히스토리 유지)
-                history.pushState({
-                    page: getCurrentPage(),
-                    filter: currentFilter,
-                    ratingFilter: currentRatingFilter,
-                    type: 'page'
-                }, null);
                 return;
             }
 
-            // 3. 필터가 적용된 상태 (전체 아님) → 전체보기로 돌아가기
+            // 3. state에서 필터 정보 복원
+            if (state && state.filter !== undefined) {
+                currentFilter = state.filter;
+                currentRatingFilter = state.ratingFilter;
+                window.currentVideoPage = state.page || 1;
+                renderSidebar();
+                renderList();
+                return;
+            }
+
+            // 4. 필터가 적용된 상태 (전체 아님) → 전체보기로 돌아가기
             if (currentFilter !== '전체' || currentRatingFilter !== null) {
                 showAllVideos();
                 return;
             }
 
-            // 4. 전체보기이고 페이지가 1이 아니면 → 이전 페이지로 이동
+            // 5. 전체보기이고 페이지가 1이 아니면 → 이전 페이지로 이동
             if (window.currentVideoPage > 1) {
                 goToPreviousPage();
-                // 페이지 이동 후 상태 푸시
-                history.pushState({
-                    page: getCurrentPage(),
-                    filter: currentFilter,
-                    ratingFilter: currentRatingFilter,
-                    type: 'page'
-                }, null);
                 return;
             }
 
-            // 5. 전체보기 + 페이지 1 → 앱 종료
+            // 6. 전체보기 + 페이지 1 → 앱 종료
             if (confirm('앱을 종료하시겠습니까?')) {
                 // 로그아웃 후 종료
                 if (firebase.auth().currentUser) {
@@ -2734,14 +2728,6 @@
                 } else {
                     window.close();
                 }
-            } else {
-                // 취소 시 현재 상태 다시 푸시 (히스토리 유지)
-                history.pushState({
-                    page: getCurrentPage(),
-                    filter: currentFilter,
-                    ratingFilter: currentRatingFilter,
-                    type: 'page'
-                }, null);
             }
         }
 
@@ -2822,10 +2808,13 @@
             // 모바일 뒤로가기 처리 (popstate 이벤트)
             window.addEventListener('popstate', handleMobileBackButton);
 
-            // 초기 히스토리 스택 생성 (충분한 깊이로 설정해서 초기 상태로 돌아갈 때까지 뒤로가기 가능하게)
-            for (let i = 0; i < 5; i++) {
-                history.pushState({ page: getCurrentPage() }, null);
-            }
+            // 초기 히스토리 상태 설정
+            history.pushState({
+                page: getCurrentPage(),
+                filter: currentFilter,
+                ratingFilter: currentRatingFilter,
+                type: 'initial'
+            }, null);
         });
 
         // 로그인 함수
