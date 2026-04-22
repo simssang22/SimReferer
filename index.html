@@ -589,6 +589,8 @@
             height: 100%;
             background-color: rgba(0, 0, 0, 0.5);
             animation: fadeIn 0.3s;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
         @keyframes fadeIn {
@@ -598,8 +600,9 @@
 
         .modal.show {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             justify-content: center;
+            padding-top: 20px;
         }
 
         .modal-content {
@@ -611,7 +614,9 @@
             width: 90%;
             max-height: 90vh;
             overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
             animation: slideUp 0.3s;
+            flex-shrink: 0;
         }
 
         @keyframes slideUp {
@@ -2218,6 +2223,8 @@
 
             // 모달 표시
             document.getElementById('detailModal').classList.add('show');
+            // 배경 스크롤 방지
+            document.body.style.overflow = 'hidden';
             // 모달 열릴 때 히스토리 추가
             history.pushState({ modal: 'detail', videoId: id }, null);
         }
@@ -2225,6 +2232,7 @@
         // 모달 닫기
         function closeModal() {
             document.getElementById('detailModal').classList.remove('show');
+            document.body.style.overflow = 'auto';
             currentModalVideoId = null;
         }
 
