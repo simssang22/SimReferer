@@ -1119,7 +1119,7 @@
 </head>
 <body>
     <!-- 버전 정보 배지 -->
-    <div class="version-badge">Version: v1.0.7</div>
+    <div class="version-badge">Version: v1.0.8</div>
 
     <!-- 로그인 화면 -->
     <div id="loginScreen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; z-index: 10000;">
@@ -1444,6 +1444,27 @@
         // 모바일 기기 판별
         function isMobileDevice() {
             return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        }
+
+        // 모바일 페이지 생명주기 핸들러 (백그라운드 진입 시 로그아웃)
+        function setupPageLifecycleHandlers() {
+            if (!isMobileDevice()) return;
+
+            // 앱이 백그라운드로 갈 때
+            document.addEventListener('pagehide', () => {
+                if (firebase.auth() && firebase.auth().currentUser) {
+                    console.log('📱 앱 백그라운드 진입 - 세션 종료');
+                    firebase.auth().signOut().catch(error => {
+                        console.log('백그라운드 로그아웃:', error.message);
+                    });
+                }
+            });
+
+            // 앱이 포그라운드로 돌아올 때
+            document.addEventListener('pageshow', () => {
+                console.log('📱 앱 포그라운드 복귀 - 로그인 상태 확인');
+                // onAuthStateChanged가 자동으로 상태 확인
+            });
         }
 
         // 별점 설정 함수
@@ -3035,6 +3056,9 @@
                     ? firebase.auth.Auth.Persistence.LOCAL      // 모바일: 앱 종료 시만 로그아웃
                     : firebase.auth.Auth.Persistence.SESSION;   // PC: 브라우저 종료 시 로그아웃
                 firebase.auth().setPersistence(persistenceType);
+
+                // 모바일 페이지 생명주기 핸들러 설정
+                setupPageLifecycleHandlers();
 
                 firebaseInitialized = true;
                 console.log('✅ Firebase 초기화 완료');
