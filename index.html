@@ -1778,6 +1778,13 @@
             }
             renderSidebar();
             renderList();
+            // 전체보기 상태 저장
+            history.pushState({
+                page: getCurrentPage(),
+                filter: currentFilter,
+                ratingFilter: currentRatingFilter,
+                type: 'showAll'
+            }, null);
         }
 
         // 배우별 필터링
@@ -1787,6 +1794,13 @@
             window.currentVideoPage = 1;
             renderSidebar();
             renderList();
+            // 필터 상태 저장
+            history.pushState({
+                page: getCurrentPage(),
+                filter: currentFilter,
+                ratingFilter: currentRatingFilter,
+                type: 'filter'
+            }, null);
         }
 
         // 별점별 필터링
@@ -1796,6 +1810,13 @@
             window.currentVideoPage = 1;
             renderSidebar();
             renderList();
+            // 필터 상태 저장
+            history.pushState({
+                page: getCurrentPage(),
+                filter: currentFilter,
+                ratingFilter: currentRatingFilter,
+                type: 'filter'
+            }, null);
         }
 
         // 품번별 검색
@@ -2646,7 +2667,6 @@
 
         // 모바일 뒤로가기 처리
         function handleMobileBackButton(event) {
-            event.preventDefault();
             const state = event.state;
 
             // 1. 팝업 상태에서 뒤로가기 → 팝업 닫기
@@ -2655,7 +2675,12 @@
                 else if (state.modal === 'referer') closeRefererModal();
                 else if (state.modal === 'addVideo') closeAddVideoModal();
                 // 팝업 닫은 후 현재 상태 다시 푸시 (히스토리 유지)
-                history.pushState({ page: getCurrentPage() }, null);
+                history.pushState({
+                    page: getCurrentPage(),
+                    filter: currentFilter,
+                    ratingFilter: currentRatingFilter,
+                    type: 'page'
+                }, null);
                 return;
             }
 
@@ -2669,18 +2694,35 @@
                 else if (refererModal && refererModal.classList.contains('show')) closeRefererModal();
                 else if (addVideoModal && addVideoModal.classList.contains('show')) closeAddVideoModal();
                 // 팝업 닫은 후 현재 상태 다시 푸시 (히스토리 유지)
-                history.pushState({ page: getCurrentPage() }, null);
+                history.pushState({
+                    page: getCurrentPage(),
+                    filter: currentFilter,
+                    ratingFilter: currentRatingFilter,
+                    type: 'page'
+                }, null);
                 return;
             }
 
-            // 3. 팝업이 없고 현재 페이지가 1이 아니면 이전 페이지로 이동
-            if (goToPreviousPage()) {
+            // 3. 필터가 적용된 상태 (전체 아님) → 전체보기로 돌아가기
+            if (currentFilter !== '전체' || currentRatingFilter !== null) {
+                showAllVideos();
+                return;
+            }
+
+            // 4. 전체보기이고 페이지가 1이 아니면 → 이전 페이지로 이동
+            if (window.currentVideoPage > 1) {
+                goToPreviousPage();
                 // 페이지 이동 후 상태 푸시
-                history.pushState({ page: getCurrentPage() }, null);
+                history.pushState({
+                    page: getCurrentPage(),
+                    filter: currentFilter,
+                    ratingFilter: currentRatingFilter,
+                    type: 'page'
+                }, null);
                 return;
             }
 
-            // 4. 페이지 1이고 팝업도 없으면 html 종료
+            // 5. 전체보기 + 페이지 1 → 앱 종료
             if (confirm('앱을 종료하시겠습니까?')) {
                 // 로그아웃 후 종료
                 if (firebase.auth().currentUser) {
@@ -2694,7 +2736,12 @@
                 }
             } else {
                 // 취소 시 현재 상태 다시 푸시 (히스토리 유지)
-                history.pushState({ page: getCurrentPage() }, null);
+                history.pushState({
+                    page: getCurrentPage(),
+                    filter: currentFilter,
+                    ratingFilter: currentRatingFilter,
+                    type: 'page'
+                }, null);
             }
         }
 
