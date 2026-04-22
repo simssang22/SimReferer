@@ -2044,9 +2044,9 @@
                 imageSection.innerHTML = '';
             }
 
-            // 배우 이름 (뱃지 형태)
+            // 배우 이름 (뱃지 형태 - 클릭 가능)
             const actorBadgesHtml = video.actors && video.actors.length > 0
-                ? '<div class="actor-badges">' + video.actors.map(actor => `<span class="actor-badge">${escapeHtml(actor)}</span>`).join('') + '</div>'
+                ? '<div class="actor-badges">' + video.actors.map(actor => `<span class="actor-badge" onclick="closeModalAndFilterActor('${escapeHtml(actor)}');" style="cursor: pointer;">${escapeHtml(actor)}</span>`).join('') + '</div>'
                 : '';
             document.getElementById('modalVideoTitle').innerHTML = actorBadgesHtml;
 
@@ -2113,6 +2113,12 @@
         function closeModal() {
             document.getElementById('detailModal').classList.remove('show');
             currentModalVideoId = null;
+        }
+
+        // 배우 클릭 시 모달 닫고 필터링
+        function closeModalAndFilterActor(actorName) {
+            closeModal();
+            filterByActor(actorName);
         }
 
         // 모달 링크 복사
