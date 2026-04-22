@@ -1324,11 +1324,15 @@
                 <div class="modal-section-group">
                     <div class="modal-section">
                         <label class="modal-label">품번</label>
-                        <input
-                            type="text"
-                            id="productNumber"
-                            placeholder="상품 번호 또는 ID"
-                        >
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <input
+                                type="text"
+                                id="productNumber"
+                                placeholder="상품 번호 또는 ID"
+                                oninput="checkProductNumberDuplicate()"
+                            >
+                            <span id="productNumberStatus" style="font-size: 20px; min-width: 24px; text-align: center; font-weight: bold;"></span>
+                        </div>
                     </div>
 
                     <div class="modal-section">
@@ -1537,6 +1541,32 @@
                     console.error('⚠️ localStorage 저장 실패:', error.message);
                     console.log('💡 Firebase로 자동 저장되므로 문제없습니다');
                 }
+            }
+        }
+
+        // 품번 중복 확인 함수
+        function checkProductNumberDuplicate() {
+            const productNumberInput = document.getElementById('productNumber');
+            const statusSpan = document.getElementById('productNumberStatus');
+            const productNumber = productNumberInput.value.trim();
+
+            if (!productNumber) {
+                statusSpan.textContent = '';
+                statusSpan.style.color = '';
+                return;
+            }
+
+            const videos = getVideos();
+            const isDuplicate = videos.some(v => v.productNumber === productNumber);
+
+            if (isDuplicate) {
+                statusSpan.textContent = '❌';
+                statusSpan.style.color = '#ff6b6b';
+                statusSpan.title = '이미 추가된 품번입니다';
+            } else {
+                statusSpan.textContent = '✅';
+                statusSpan.style.color = '#51cf66';
+                statusSpan.title = '새로운 품번입니다';
             }
         }
 
