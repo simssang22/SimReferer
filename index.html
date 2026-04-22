@@ -1770,6 +1770,12 @@
             currentFilter = '전체';
             currentRatingFilter = null;
             window.currentVideoPage = 1;
+            // 검색 입력 필드 비우기
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.value = '';
+                window.currentSearchQuery = '';
+            }
             renderSidebar();
             renderList();
         }
@@ -2604,6 +2610,68 @@
             }, 3000);
         }
 
+        // 팝업이 열려있는지 확인
+        function isAnyModalOpen() {
+            const detailModal = document.getElementById('detailModal');
+            const refererModal = document.getElementById('refererModal');
+            const addVideoModal = document.getElementById('addVideoModal');
+
+            return (detailModal && detailModal.classList.contains('show')) ||
+                   (refererModal && refererModal.classList.contains('show')) ||
+                   (addVideoModal && addVideoModal.classList.contains('show'));
+        }
+
+        // 현재 페이지 번호 얻기
+        function getCurrentPage() {
+            return window.currentVideoPage || 1;
+        }
+
+        // 이전 페이지로 이동
+        function goToPreviousPage() {
+            const currentPage = getCurrentPage();
+            if (currentPage > 1) {
+                window.currentVideoPage = currentPage - 1;
+                renderList();
+                window.scrollTo(0, 0);
+                return true;
+            }
+            return false;
+        }
+
+        // 모바일 뒤로가기 처리
+        function handleMobileBackButton() {
+            // 1. 팝업이 열려있으면 팝업 닫기
+            if (isAnyModalOpen()) {
+                const detailModal = document.getElementById('detailModal');
+                const refererModal = document.getElementById('refererModal');
+                const addVideoModal = document.getElementById('addVideoModal');
+
+                if (detailModal && detailModal.classList.contains('show')) closeModal();
+                else if (refererModal && refererModal.classList.contains('show')) closeRefererModal();
+                else if (addVideoModal && addVideoModal.classList.contains('show')) closeAddVideoModal();
+                return;
+            }
+
+            // 2. 팝업이 없고 현재 페이지가 1이 아니면 이전 페이지로 이동
+            if (goToPreviousPage()) {
+                return;
+            }
+
+            // 3. 페이지 1이고 팝업도 없으면 html 종료
+            if (confirm('앱을 종료하시겠습니까?')) {
+                // 로그아웃 후 종료
+                if (firebase.auth().currentUser) {
+                    firebase.auth().signOut().then(() => {
+                        window.close();
+                    }).catch(() => {
+                        window.close();
+                    });
+                } else {
+                    window.close();
+                }
+            }
+        }
+
         // 페이지 로드 시 리스트 표시
         document.addEventListener('DOMContentLoaded', () => {
             // Firebase 초기화
@@ -2677,6 +2745,12 @@
                     if (e.key === 'Enter') document.getElementById('videoContent').focus();
                 });
             }
+
+            // 모바일 뒤로가기 처리 (popstate 이벤트)
+            window.addEventListener('popstate', handleMobileBackButton);
+
+            // 초기 히스토리 상태 설정
+            history.pushState({ page: getCurrentPage() }, null);
         });
 
         // 로그인 함수
