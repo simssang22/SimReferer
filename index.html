@@ -454,6 +454,38 @@
             width: 20px;
             height: 20px;
             cursor: pointer;
+            -webkit-appearance: none;
+            appearance: none;
+            accent-color: #667eea;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="password"],
+        textarea {
+            font-size: 16px;
+            padding: 12px;
+            min-height: 44px;
+            -webkit-user-select: text;
+            user-select: text;
+        }
+
+        input[type="text"]:focus,
+        input[type="email"]:focus,
+        input[type="password"]:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        button:active {
+            opacity: 0.8;
         }
 
         .thumbnail {
@@ -767,12 +799,44 @@
             .modal-content {
                 width: 95%;
                 max-height: 95vh;
+                border-radius: 12px;
+            }
+
+            .modal-header {
+                padding: 16px 16px;
+                gap: 12px;
+            }
+
+            .modal-header h2 {
+                font-size: 18px;
+            }
+
+            .modal-close {
+                width: 40px;
+                height: 40px;
+                font-size: 28px;
+                min-height: 44px;
+            }
+
+            .modal-body {
+                padding: 16px;
             }
 
             .modal-image {
                 width: 100%;
                 height: auto;
                 max-width: 650px;
+                border-radius: 8px;
+            }
+
+            .modal-label {
+                font-size: 14px;
+            }
+
+            .btn-small {
+                min-height: 44px;
+                padding: 10px 12px;
+                font-size: 12px;
             }
         }
 
@@ -811,10 +875,12 @@
 
             .header-button {
                 flex: 1;
-                min-width: 100px;
+                min-width: 70px;
                 font-size: 12px;
-                padding: 10px 8px;
+                padding: 12px 8px;
                 height: auto;
+                min-height: 44px;
+                touch-action: manipulation;
             }
 
             .main-wrapper {
@@ -862,6 +928,7 @@
             }
 
             .video-item {
+                display: flex;
                 flex-direction: column;
                 gap: 0;
                 padding: 0;
@@ -871,6 +938,7 @@
                 box-shadow: 0 4px 15px rgba(0,0,0,0.15);
                 margin-bottom: 15px;
                 transition: transform 0.3s, box-shadow 0.3s;
+                position: relative;
             }
 
             .video-item:active {
@@ -1804,7 +1872,7 @@
         }
 
         // 전체 동영상 보기
-        function showAllVideos() {
+        function showAllVideos(skipHistory = false) {
             currentFilter = '전체';
             currentRatingFilter = null;
             window.currentVideoPage = 1;
@@ -1816,13 +1884,15 @@
             }
             renderSidebar();
             renderList();
-            // 전체보기 상태 저장
-            history.pushState({
-                page: getCurrentPage(),
-                filter: currentFilter,
-                ratingFilter: currentRatingFilter,
-                type: 'showAll'
-            }, null);
+            // 전체보기 상태 저장 (popstate 처리 중에는 history 푸시 금지)
+            if (!skipHistory) {
+                history.pushState({
+                    page: getCurrentPage(),
+                    filter: currentFilter,
+                    ratingFilter: currentRatingFilter,
+                    type: 'showAll'
+                }, null);
+            }
         }
 
         // 배우별 필터링
@@ -1998,16 +2068,18 @@
         }
 
         // 페이지 이동 함수
-        function goToPage(page) {
+        function goToPage(page, skipHistory = false) {
             window.currentVideoPage = page;
             renderList();
-            // 페이지 이동 시 히스토리 저장
-            history.pushState({
-                page: page,
-                filter: currentFilter,
-                ratingFilter: currentRatingFilter,
-                type: 'pagination'
-            }, null);
+            // 페이지 이동 시 히스토리 저장 (popstate 처리 중에는 history 푸시 금지)
+            if (!skipHistory) {
+                history.pushState({
+                    page: page,
+                    filter: currentFilter,
+                    ratingFilter: currentRatingFilter,
+                    type: 'pagination'
+                }, null);
+            }
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
@@ -2776,10 +2848,10 @@
         }
 
         // 이전 페이지로 이동
-        function goToPreviousPage() {
+        function goToPreviousPage(skipHistory = false) {
             const currentPage = getCurrentPage();
             if (currentPage > 1) {
-                goToPage(currentPage - 1);
+                goToPage(currentPage - 1, skipHistory);
                 return true;
             }
             return false;
@@ -2821,13 +2893,13 @@
 
             // 4. 필터가 적용된 상태 (전체 아님) → 전체보기로 돌아가기
             if (currentFilter !== '전체' || currentRatingFilter !== null) {
-                showAllVideos();
+                showAllVideos(true); // skipHistory = true (popstate 중이므로)
                 return;
             }
 
             // 5. 전체보기이고 페이지가 1이 아니면 → 이전 페이지로 이동
             if (window.currentVideoPage > 1) {
-                goToPreviousPage();
+                goToPreviousPage(true); // skipHistory = true (popstate 중이므로)
                 return;
             }
 
