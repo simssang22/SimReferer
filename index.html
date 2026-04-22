@@ -2306,7 +2306,14 @@
             subtitleSection.innerHTML = subtitleHTML;
 
             // 모달 표시
-            document.getElementById('detailModal').classList.add('show');
+            const detailModal = document.getElementById('detailModal');
+            detailModal.classList.add('show');
+            // 모달 스크롤 맨 위로 초기화
+            detailModal.scrollTop = 0;
+            const modalContent = detailModal.querySelector('.modal-content');
+            if (modalContent) {
+                modalContent.scrollTop = 0;
+            }
             // 배경 스크롤 방지
             document.body.style.overflow = 'hidden';
             // 모달 열릴 때 히스토리 추가
