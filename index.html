@@ -1133,6 +1133,10 @@
             <div class="modal-body">
                 <div class="modal-section" id="modalImageSection"></div>
                 <div class="modal-section">
+                    <label class="modal-label">품번</label>
+                    <div id="modalProductNumber" style="cursor: pointer; padding: 8px 12px; background: #f5f5f5; border-radius: 4px; color: #667eea; font-weight: 600; transition: background 0.3s;" onmouseover="this.style.background='#e6ebff'" onmouseout="this.style.background='#f5f5f5'" onclick="copyProductLink()"></div>
+                </div>
+                <div class="modal-section">
                     <label class="modal-label">배우</label>
                     <div id="modalVideoTitle"></div>
                 </div>
@@ -1164,6 +1168,19 @@
                 <button class="modal-close" onclick="closeRefererModal()">✕</button>
             </div>
             <div class="modal-body">
+                <div class="modal-section">
+                    <label class="modal-label">기본 링크 (상품 링크 기본 주소)</label>
+                    <input
+                        type="text"
+                        id="globalBaseUrl"
+                        placeholder="예: https://example.com/product/ 또는 www.naver.com/"
+                        style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;"
+                    >
+                    <div style="font-size: 12px; color: #999; margin-top: 8px;">
+                        💡 품번 클릭 시 이 기본 링크 + 품번으로 복사됩니다
+                    </div>
+                </div>
+
                 <div class="modal-section">
                     <label class="modal-label">글로벌 Referer 텍스트</label>
                     <textarea
@@ -1318,6 +1335,7 @@
         // localStorage 키 (백업용)
         const STORAGE_KEY = 'videos_list';
         const GLOBAL_REFERER_KEY = 'global_referer';
+        const GLOBAL_BASE_URL_KEY = 'global_base_url';
 
         // 현재 필터 상태
         let currentFilter = '전체';
@@ -1358,6 +1376,26 @@
 
             if (firebaseInitialized && db) {
                 firebase.database().ref('globalReferer').set(referer)
+                    .catch(error => console.error('Firebase 저장 실패:', error));
+            }
+        }
+
+        // 글로벌 기본 URL 가져오기 (Firebase 또는 localStorage)
+        function getGlobalBaseUrl() {
+            if (!firebaseInitialized) {
+                return localStorage.getItem(GLOBAL_BASE_URL_KEY) || '';
+            }
+            // Firebase 버전은 실시간 리스너로 관리됨
+            return window.currentGlobalBaseUrl || '';
+        }
+
+        // 글로벌 기본 URL 저장 (Firebase + localStorage)
+        function saveGlobalBaseUrl(baseUrl) {
+            localStorage.setItem(GLOBAL_BASE_URL_KEY, baseUrl);
+            window.currentGlobalBaseUrl = baseUrl;
+
+            if (firebaseInitialized && db) {
+                firebase.database().ref('globalBaseUrl').set(baseUrl)
                     .catch(error => console.error('Firebase 저장 실패:', error));
             }
         }
@@ -2029,10 +2067,13 @@
 
             const productNum = video.productNumber || '미등록';
             const actorNames = video.actors ? video.actors.join(', ') : '미분류';
-            const modalTitle = `${productNum} | ${actorNames}`;
+            const modalTitle = `${actorNames}`;
 
             // 모달 제목
             document.getElementById('modalTitle').textContent = modalTitle;
+
+            // 품번 렌더링
+            document.getElementById('modalProductNumber').textContent = productNum;
 
             // 이미지 섹션
             const imageSection = document.getElementById('modalImageSection');
@@ -2139,6 +2180,46 @@
                 navigator.clipboard.writeText(linkToCopy)
                     .then(() => {
                         showMessage('✅ 링크가 복사되었습니다!', 'success');
+                    })
+                    .catch(() => {
+                        fallbackCopy(linkToCopy);
+                    });
+            } else {
+                // 방법 2: 폴백 (구형 브라우저)
+                fallbackCopy(linkToCopy);
+            }
+        }
+
+        // 품번 링크 복사
+        function copyProductLink() {
+            const videos = getVideos();
+            const video = videos.find(v => v.id === currentModalVideoId);
+
+            if (!video) {
+                showMessage('❌ 영상을 찾을 수 없습니다.', 'error');
+                return;
+            }
+
+            const baseUrl = getGlobalBaseUrl();
+            const productNumber = video.productNumber;
+            let linkToCopy;
+
+            if (baseUrl && productNumber) {
+                // 기본 URL이 설정되어 있으면 baseUrl + productNumber 형태로 복사
+                linkToCopy = baseUrl + productNumber;
+            } else if (productNumber) {
+                // 기본 URL이 없으면 품번만 복사
+                linkToCopy = productNumber;
+            } else {
+                // 품번이 없으면 영상 링크 복사
+                linkToCopy = video.link;
+            }
+
+            // 방법 1: Clipboard API (최신 방식)
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(linkToCopy)
+                    .then(() => {
+                        showMessage('✅ 복사되었습니다!', 'success');
                     })
                     .catch(() => {
                         fallbackCopy(linkToCopy);
@@ -2499,6 +2580,10 @@
             if (refererEl) {
                 refererEl.value = getGlobalReferer();
             }
+            const baseUrlEl = document.getElementById('globalBaseUrl');
+            if (baseUrlEl) {
+                baseUrlEl.value = getGlobalBaseUrl();
+            }
             const refererModal = document.getElementById('refererModal');
             if (refererModal) {
                 refererModal.classList.add('show');
@@ -2513,17 +2598,26 @@
 
         function saveReferer() {
             const refererEl = document.getElementById('globalReferer');
+            const baseUrlEl = document.getElementById('globalBaseUrl');
+
             if (!refererEl) {
                 showMessage('❌ Referer 요소를 찾을 수 없습니다.', 'error');
                 return;
             }
+
             const referer = refererEl.value;
+            const baseUrl = baseUrlEl ? baseUrlEl.value : '';
+
             if (!referer) {
                 showMessage('❌ Referer 텍스트를 입력해주세요.', 'error');
                 return;
             }
+
             saveGlobalReferer(referer);
-            showMessage('✅ 글로벌 Referer가 저장되었습니다!', 'success');
+            if (baseUrl) {
+                saveGlobalBaseUrl(baseUrl);
+            }
+            showMessage('✅ 설정이 저장되었습니다!', 'success');
         }
 
         function openAddVideoModal() {
@@ -2633,6 +2727,21 @@
                 }
             }, (error) => {
                 console.warn('Firebase Referer 감시 실패:', error);
+            });
+
+            // 글로벌 기본 URL 감시
+            firebase.database().ref('globalBaseUrl').on('value', (snapshot) => {
+                const baseUrl = snapshot.val();
+                if (baseUrl) {
+                    window.currentGlobalBaseUrl = baseUrl;
+                    const baseUrlEl = document.getElementById('globalBaseUrl');
+                    if (baseUrlEl) {
+                        baseUrlEl.value = baseUrl;
+                    }
+                    console.log('📥 Firebase에서 기본 URL 수신:', baseUrl);
+                }
+            }, (error) => {
+                console.warn('Firebase 기본 URL 감시 실패:', error);
             });
         }
 
