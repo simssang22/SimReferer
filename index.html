@@ -2077,6 +2077,8 @@
 
             // 모달 표시
             document.getElementById('detailModal').classList.add('show');
+            // 모달 열릴 때 히스토리 추가
+            history.pushState({ modal: 'detail', videoId: id }, null);
         }
 
         // 모달 닫기
@@ -2466,6 +2468,8 @@
             const refererModal = document.getElementById('refererModal');
             if (refererModal) {
                 refererModal.classList.add('show');
+                // 모달 열릴 때 히스토리 추가
+                history.pushState({ modal: 'referer' }, null);
             }
         }
 
@@ -2513,6 +2517,8 @@
 
             window.currentEditingVideoId = null;
             document.getElementById('addVideoModal').classList.add('show');
+            // 모달 열릴 때 히스토리 추가
+            history.pushState({ modal: 'addVideo' }, null);
         }
 
         function closeAddVideoModal() {
@@ -2639,8 +2645,18 @@
         }
 
         // 모바일 뒤로가기 처리
-        function handleMobileBackButton() {
-            // 1. 팝업이 열려있으면 팝업 닫기
+        function handleMobileBackButton(event) {
+            const state = event.state;
+
+            // 1. 팝업 상태에서 뒤로가기 → 팝업 닫기
+            if (state && state.modal) {
+                if (state.modal === 'detail') closeModal();
+                else if (state.modal === 'referer') closeRefererModal();
+                else if (state.modal === 'addVideo') closeAddVideoModal();
+                return;
+            }
+
+            // 2. 팝업이 열려있으면 팝업 닫기
             if (isAnyModalOpen()) {
                 const detailModal = document.getElementById('detailModal');
                 const refererModal = document.getElementById('refererModal');
@@ -2652,12 +2668,12 @@
                 return;
             }
 
-            // 2. 팝업이 없고 현재 페이지가 1이 아니면 이전 페이지로 이동
+            // 3. 팝업이 없고 현재 페이지가 1이 아니면 이전 페이지로 이동
             if (goToPreviousPage()) {
                 return;
             }
 
-            // 3. 페이지 1이고 팝업도 없으면 html 종료
+            // 4. 페이지 1이고 팝업도 없으면 html 종료
             if (confirm('앱을 종료하시겠습니까?')) {
                 // 로그아웃 후 종료
                 if (firebase.auth().currentUser) {
