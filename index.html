@@ -1225,7 +1225,7 @@
 </head>
 <body>
     <!-- 버전 정보 배지 -->
-    <div class="version-badge">Version: v1.0.25</div>
+    <div class="version-badge">Version: v1.0.26</div>
 
     <!-- 로그인 화면 -->
     <div id="loginScreen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; z-index: 10000;">
@@ -1528,7 +1528,7 @@
                             placeholder="자막 파일 주소"
                         >
                         <label class="subtitle-checkbox-label" style="margin-top: 10px;">
-                            <input type="checkbox" id="subtitleEnabled">
+                            <input type="checkbox" id="subtitleEnabled" onchange="autoSaveSubtitleEnabled()">
                             자막 다운로드 완료
                         </label>
                     </div>
@@ -1901,6 +1901,21 @@
                 closeAddVideoModal();
             } else {
                 showAddVideoMessage('영상을 찾을 수 없습니다.', 'error');
+            }
+        }
+
+        // 자막 체크박스 자동 저장
+        function autoSaveSubtitleEnabled() {
+            if (!window.currentEditingVideoId) return;
+
+            const videos = getVideos();
+            const index = videos.findIndex(v => v.id === window.currentEditingVideoId);
+            if (index !== -1) {
+                const subtitleEnabled = document.getElementById('subtitleEnabled').checked;
+                videos[index].subtitleEnabled = subtitleEnabled;
+                saveVideos(videos);
+                renderSidebar();
+                renderList();
             }
         }
 
