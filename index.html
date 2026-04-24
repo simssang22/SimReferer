@@ -1225,7 +1225,7 @@
 </head>
 <body>
     <!-- 버전 정보 배지 -->
-    <div class="version-badge">Version: v1.0.24</div>
+    <div class="version-badge">Version: v1.0.25</div>
 
     <!-- 로그인 화면 -->
     <div id="loginScreen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; z-index: 10000;">
@@ -2182,6 +2182,10 @@
             window.currentVideoPage = 1;
             renderSidebar();
             renderList();
+            // 스크롤 초기화
+            const videoList = document.getElementById('videoList');
+            if (videoList) videoList.scrollTop = 0;
+            window.scrollTo(0, 0);
             // 필터 상태 저장
             history.pushState({
                 page: getCurrentPage(),
@@ -2202,6 +2206,10 @@
             window.currentVideoPage = 1;
             renderSidebar();
             renderList();
+            // 스크롤 초기화
+            const videoList = document.getElementById('videoList');
+            if (videoList) videoList.scrollTop = 0;
+            window.scrollTo(0, 0);
             // 필터 상태 저장
             history.pushState({
                 page: getCurrentPage(),
