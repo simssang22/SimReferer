@@ -1218,14 +1218,14 @@
             border-radius: 20px;
             font-size: 12px;
             font-weight: 600;
-            z-index: 9999;
+            z-index: 10001;
             letter-spacing: 0.5px;
         }
     </style>
 </head>
 <body>
     <!-- 버전 정보 배지 -->
-    <div class="version-badge">Version: v1.0.23</div>
+    <div class="version-badge">Version: v1.0.24</div>
 
     <!-- 로그인 화면 -->
     <div id="loginScreen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; z-index: 10000;">
@@ -1566,7 +1566,7 @@
         // 현재 필터 상태
         let currentFilter = '전체';
         let currentRatingFilter = null;
-        let actorSortType = 'name'; // 'name' 또는 'count'
+        let actorSortType = 'count'; // 'name' 또는 'count'
         let filterMultipleActors = false; // 배우 2명 이상 필터
         let currentSubtitleFilter = 'all'; // all | enabled | hasUrl | none
         window.currentSearchQuery = '';
