@@ -1225,7 +1225,7 @@
 </head>
 <body>
     <!-- 버전 정보 배지 -->
-    <div class="version-badge">Version: v1.0.29</div>
+    <div class="version-badge">Version: v1.0.30</div>
 
     <!-- 로그인 화면 -->
     <div id="loginScreen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; z-index: 10000;">
@@ -2159,6 +2159,7 @@
         function showAllVideos(skipHistory = false) {
             currentFilter = '전체';
             currentRatingFilter = null;
+            filterMultipleActors = false;
             window.currentVideoPage = 1;
             // 검색 입력 필드 비우기
             const searchInput = document.getElementById('searchInput');
@@ -2170,9 +2171,20 @@
             currentSubtitleFilter = 'all';
             const subtitleFilterSelect = document.getElementById('subtitleFilterSelect');
             if (subtitleFilterSelect) subtitleFilterSelect.value = 'all';
+            // 배우 2명 이상 필터 초기화
+            const multipleActorsToggle = document.getElementById('multipleActorsToggle');
+            if (multipleActorsToggle) multipleActorsToggle.checked = false;
 
             renderSidebar();
             renderList();
+
+            // 스크롤 초기화
+            const videoList = document.getElementById('videoList');
+            if (videoList) videoList.scrollTop = 0;
+            const sidebarActorList = document.getElementById('sidebarActorList');
+            if (sidebarActorList) sidebarActorList.scrollTop = 0;
+            window.scrollTo(0, 0);
+
             // 전체보기 상태 저장 (popstate 처리 중에는 history 푸시 금지)
             if (!skipHistory) {
                 history.pushState({
