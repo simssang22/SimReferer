@@ -1224,7 +1224,7 @@
 </head>
 <body>
     <!-- 버전 정보 배지 -->
-    <div class="version-badge">Version: v1.0.18</div>
+    <div class="version-badge">Version: v1.0.19</div>
 
     <!-- 로그인 화면 -->
     <div id="loginScreen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; z-index: 10000;">
@@ -1273,6 +1273,17 @@
                     style="width: 100%; padding: 12px; border: 2px solid #667eea; border-radius: 8px; font-size: 14px; box-sizing: border-box;"
                     onkeyup="searchByProductNumber(this.value)"
                 >
+                <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; align-items:center;">
+                    <label for="subtitleFilterSelect" style="font-size:13px; color:#555; font-weight:600;">자막 필터</label>
+                    <select id="subtitleFilterSelect"
+                            onchange="setSubtitleFilter(this.value)"
+                            style="padding:8px 10px; border:2px solid #667eea; border-radius:8px; font-size:13px;">
+                        <option value="all">전체</option>
+                        <option value="enabled">자막 완료</option>
+                        <option value="hasUrl">자막 주소 있음</option>
+                        <option value="none">자막 없음</option>
+                    </select>
+                </div>
             </div>
         </div>
 
@@ -1556,6 +1567,7 @@
         let currentRatingFilter = null;
         let actorSortType = 'name'; // 'name' 또는 'count'
         let filterMultipleActors = false; // 배우 2명 이상 필터
+        let currentSubtitleFilter = 'all'; // all | enabled | hasUrl | none
         window.currentSearchQuery = '';
 
         // 모바일 기기 판별
@@ -2120,6 +2132,11 @@
                 searchInput.value = '';
                 window.currentSearchQuery = '';
             }
+            // 자막 필터 초기화
+            currentSubtitleFilter = 'all';
+            const subtitleFilterSelect = document.getElementById('subtitleFilterSelect');
+            if (subtitleFilterSelect) subtitleFilterSelect.value = 'all';
+
             renderSidebar();
             renderList();
             // 전체보기 상태 저장 (popstate 처리 중에는 history 푸시 금지)
@@ -2128,6 +2145,8 @@
                     page: getCurrentPage(),
                     filter: currentFilter,
                     ratingFilter: currentRatingFilter,
+                    multipleActorsFilter: filterMultipleActors,
+                    subtitleFilter: currentSubtitleFilter,
                     type: 'showAll'
                 }, null);
             }
@@ -2212,6 +2231,22 @@
             renderList();
         }
 
+        // 자막 필터 설정
+        function setSubtitleFilter(value) {
+            currentSubtitleFilter = value || 'all';
+            window.currentVideoPage = 1;
+            renderList();
+
+            history.pushState({
+                page: getCurrentPage(),
+                filter: currentFilter,
+                ratingFilter: currentRatingFilter,
+                multipleActorsFilter: filterMultipleActors,
+                subtitleFilter: currentSubtitleFilter,
+                type: 'filter'
+            }, null);
+        }
+
         // 리스트 렌더링
         function renderList() {
             const allVideos = getVideos();
@@ -2251,6 +2286,20 @@
             if (filterMultipleActors) {
                 filteredVideos = filteredVideos.filter(video =>
                     Array.isArray(video.actors) && video.actors.length >= 2
+                );
+            }
+
+            // 자막 필터
+            if (currentSubtitleFilter === 'enabled') {
+                filteredVideos = filteredVideos.filter(video => video.subtitleEnabled === true);
+            } else if (currentSubtitleFilter === 'hasUrl') {
+                filteredVideos = filteredVideos.filter(video =>
+                    typeof video.subtitleUrl === 'string' && video.subtitleUrl.trim() !== ''
+                );
+            } else if (currentSubtitleFilter === 'none') {
+                filteredVideos = filteredVideos.filter(video =>
+                    !video.subtitleEnabled &&
+                    (!video.subtitleUrl || String(video.subtitleUrl).trim() === '')
                 );
             }
 
@@ -3198,7 +3247,17 @@
             if (state && state.filter !== undefined) {
                 currentFilter = state.filter;
                 currentRatingFilter = state.ratingFilter;
+                filterMultipleActors = state.multipleActorsFilter || false;
+                currentSubtitleFilter = state.subtitleFilter || 'all';
                 window.currentVideoPage = state.page || 1;
+
+                // UI 동기화
+                const multipleActorsCheckbox = document.getElementById('multipleActorsToggle');
+                if (multipleActorsCheckbox) multipleActorsCheckbox.checked = filterMultipleActors;
+
+                const subtitleFilterSelect = document.getElementById('subtitleFilterSelect');
+                if (subtitleFilterSelect) subtitleFilterSelect.value = currentSubtitleFilter;
+
                 renderSidebar();
                 renderList();
                 return;
@@ -3314,6 +3373,8 @@
                 page: getCurrentPage(),
                 filter: currentFilter,
                 ratingFilter: currentRatingFilter,
+                multipleActorsFilter: filterMultipleActors,
+                subtitleFilter: currentSubtitleFilter,
                 type: 'initial'
             }, null);
         });
