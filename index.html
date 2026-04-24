@@ -1225,7 +1225,7 @@
 </head>
 <body>
     <!-- 버전 정보 배지 -->
-    <div class="version-badge">Version: v1.0.27</div>
+    <div class="version-badge">Version: v1.0.28</div>
 
     <!-- 로그인 화면 -->
     <div id="loginScreen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; z-index: 10000;">
@@ -1905,7 +1905,7 @@
             }
         }
 
-        // 자막 체크박스 자동 저장
+        // 수정 모달의 자막 체크박스 자동 저장 (사용하지 않음)
         function autoSaveSubtitleEnabled() {
             // 세부정보 읽기 전용 모드에서만 자동 저장
             if (modalMode !== 'view') return;
@@ -1915,6 +1915,21 @@
             const index = videos.findIndex(v => v.id === currentModalVideoId);
             if (index !== -1) {
                 const subtitleEnabled = document.getElementById('subtitleEnabled').checked;
+                videos[index].subtitleEnabled = subtitleEnabled;
+                saveVideos(videos);
+                renderSidebar();
+                renderList();
+            }
+        }
+
+        // 세부정보 모달의 자막 체크박스 자동 저장
+        function autoSaveDetailSubtitle() {
+            if (!currentModalVideoId) return;
+
+            const videos = getVideos();
+            const index = videos.findIndex(v => v.id === currentModalVideoId);
+            if (index !== -1) {
+                const subtitleEnabled = document.getElementById('modalSubtitleEnabled').checked;
                 videos[index].subtitleEnabled = subtitleEnabled;
                 saveVideos(videos);
                 renderSidebar();
@@ -2591,7 +2606,7 @@
             subtitleHTML += `
                 <label class="modal-label">자막</label>
                 <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                    <input type="checkbox" id="modalSubtitleEnabled" ${video.subtitleEnabled ? 'checked' : ''} disabled>
+                    <input type="checkbox" id="modalSubtitleEnabled" ${video.subtitleEnabled ? 'checked' : ''} onchange="autoSaveDetailSubtitle()">
                     <span style="color: #666; font-size: 14px;">자막 다운로드 완료</span>
                 </div>
             `;
