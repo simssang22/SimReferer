@@ -1225,7 +1225,7 @@
 </head>
 <body>
     <!-- 버전 정보 배지 -->
-    <div class="version-badge">Version: v1.0.26</div>
+    <div class="version-badge">Version: v1.0.27</div>
 
     <!-- 로그인 화면 -->
     <div id="loginScreen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; z-index: 10000;">
@@ -1570,6 +1570,7 @@
         let filterMultipleActors = false; // 배우 2명 이상 필터
         let currentSubtitleFilter = 'all'; // all | enabled | hasUrl | none
         window.currentSearchQuery = '';
+        let modalMode = null; // 'view' (세부정보 읽기 전용) | 'edit' (수정 모드) | null
 
         // 모바일 기기 판별
         function isMobileDevice() {
@@ -1906,10 +1907,12 @@
 
         // 자막 체크박스 자동 저장
         function autoSaveSubtitleEnabled() {
-            if (!window.currentEditingVideoId) return;
+            // 세부정보 읽기 전용 모드에서만 자동 저장
+            if (modalMode !== 'view') return;
+            if (!currentModalVideoId) return;
 
             const videos = getVideos();
-            const index = videos.findIndex(v => v.id === window.currentEditingVideoId);
+            const index = videos.findIndex(v => v.id === currentModalVideoId);
             if (index !== -1) {
                 const subtitleEnabled = document.getElementById('subtitleEnabled').checked;
                 videos[index].subtitleEnabled = subtitleEnabled;
@@ -2516,6 +2519,7 @@
 
         // 모달 열기
         function openModal(id) {
+            modalMode = 'view'; // 세부정보 읽기 전용 모드
             const videos = getVideos();
             const video = videos.find(v => v.id === id);
 
@@ -2622,6 +2626,7 @@
             document.getElementById('detailModal').classList.remove('show');
             document.body.style.overflow = 'auto';
             currentModalVideoId = null;
+            modalMode = null;
         }
 
         // 배우 클릭 시 모달 닫고 필터링
@@ -3147,6 +3152,7 @@
             const video = videos.find(v => v.id === videoIdToEdit);
             if (!video) return;
 
+            modalMode = 'edit'; // 수정 모드
             window.currentEditingVideoId = videoIdToEdit;
 
             // 먼저 폼 초기화
