@@ -1225,7 +1225,7 @@
 </head>
 <body>
     <!-- 버전 정보 배지 -->
-    <div class="version-badge">Version: v1.0.28</div>
+    <div class="version-badge">Version: v1.0.29</div>
 
     <!-- 로그인 화면 -->
     <div id="loginScreen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; z-index: 10000;">
@@ -1256,7 +1256,7 @@
     <div class="container">
         <div class="header">
             <button class="mobile-menu-button" id="mobileMenuButton" onclick="toggleSidebarMenu()">☰</button>
-            <div>
+            <div onclick="showAllVideos()" style="cursor: pointer; user-select: none;">
                 <h1>🎬 동영상 링크 Referer 매니저</h1>
                 <p>동영상 링크를 관리하고 referer를 자동으로 추가하세요</p>
             </div>
