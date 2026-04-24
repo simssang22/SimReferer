@@ -1225,7 +1225,7 @@
 </head>
 <body>
     <!-- 버전 정보 배지 -->
-    <div class="version-badge">Version: v1.0.31</div>
+    <div class="version-badge">Version: v1.0.32</div>
 
     <!-- 로그인 화면 -->
     <div id="loginScreen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; z-index: 10000;">
@@ -2123,12 +2123,22 @@
             // 배우 리스트 렌더링
             if (actorList) {
                 let actorHtml = '';
-                const totalCount = videos.length;
+
+                // "배우 2명 이상만" 필터가 활성화되면 필터링된 동영상 기준으로 사이드바 업데이트
+                let videosForSidebar = videos;
+                if (filterMultipleActors) {
+                    videosForSidebar = videos.filter(v => v.actors && Array.isArray(v.actors) && v.actors.length >= 2);
+                }
+
+                const totalCount = videosForSidebar.length;
                 actorHtml += '<li class="sidebar-item' + (currentFilter === '전체' && !currentRatingFilter ? ' active' : '') + '" onclick="filterByActor(\'전체\')">전체<span style="float: right; color: #999;">' + totalCount + '개</span></li>';
 
                 actors.forEach(actor => {
-                    const count = videos.filter(v => v.actors && v.actors.includes(actor)).length;
-                    actorHtml += '<li class="sidebar-item' + (currentFilter === actor && !currentRatingFilter ? ' active' : '') + '" onclick="filterByActor(\'' + escapeHtml(actor) + '\')">' + escapeHtml(actor) + '<span style="float: right; color: #999;">' + count + '개</span></li>';
+                    const count = videosForSidebar.filter(v => v.actors && v.actors.includes(actor)).length;
+                    // "배우 2명 이상만" 필터 활성화 시 갯수가 0인 배우는 숨기기
+                    if (count > 0 || !filterMultipleActors) {
+                        actorHtml += '<li class="sidebar-item' + (currentFilter === actor && !currentRatingFilter ? ' active' : '') + '" onclick="filterByActor(\'' + escapeHtml(actor) + '\')">' + escapeHtml(actor) + '<span style="float: right; color: #999;">' + count + '개</span></li>';
+                    }
                 });
 
                 actorList.innerHTML = actorHtml;
