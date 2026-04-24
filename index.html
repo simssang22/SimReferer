@@ -1224,7 +1224,7 @@
 </head>
 <body>
     <!-- 버전 정보 배지 -->
-    <div class="version-badge">Version: v1.0.16</div>
+    <div class="version-badge">Version: v1.0.17</div>
 
     <!-- 로그인 화면 -->
     <div id="loginScreen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; z-index: 10000;">
@@ -1233,12 +1233,12 @@
 
             <div style="margin-bottom: 20px;">
                 <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #555;">이메일</label>
-                <input type="email" id="loginEmail" placeholder="이메일 주소" style="width: 100%; padding: 12px; border: 2px solid #667eea; border-radius: 8px; font-size: 14px; box-sizing: border-box;" oninput="checkLoginFormComplete()">
+                <input type="email" id="loginEmail" placeholder="이메일 주소" style="width: 100%; padding: 12px; border: 2px solid #667eea; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
             </div>
 
             <div style="margin-bottom: 20px;">
                 <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #555;">비밀번호</label>
-                <input type="password" id="loginPassword" placeholder="비밀번호" style="width: 100%; padding: 12px; border: 2px solid #667eea; border-radius: 8px; font-size: 14px; box-sizing: border-box;" oninput="checkLoginFormComplete()">
+                <input type="password" id="loginPassword" placeholder="비밀번호" style="width: 100%; padding: 12px; border: 2px solid #667eea; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
             </div>
 
             <div id="loginMessage" style="margin-bottom: 15px; padding: 12px; border-radius: 8px; text-align: center; font-size: 14px; display: none;"></div>
@@ -3282,18 +3282,6 @@
                 type: 'initial'
             }, null);
         });
-
-        // 로그인 폼 완성 확인 (자동 로그인)
-        function checkLoginFormComplete() {
-            const email = document.getElementById('loginEmail').value.trim();
-            const password = document.getElementById('loginPassword').value;
-
-            // 모바일에서만 자동 로그인 (삼성패스 사용 시)
-            // PC에서는 사용자가 버튼을 직접 눌러야 함
-            if (isMobileDevice() && email && password) {
-                handleLogin();
-            }
-        }
 
         // 로그인 함수
         function handleLogin() {
