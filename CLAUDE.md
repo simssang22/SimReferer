@@ -16,7 +16,7 @@ This is a **Video Link Referer Manager** web application (동영상 링크 Refer
 
 ## File Structure
 
-- `index.html` (2732 lines) - Complete application with embedded CSS and JavaScript
+- `index.html` (~3660 lines) - Complete application with embedded CSS and JavaScript
 
 ## How to Work With This Project
 
@@ -35,12 +35,15 @@ Since this is a single HTML file, you can:
    ```
 3. **Access at**: `http://localhost:8000`
 
+There is no build step, package manager, linter, or test suite in this repo — verify changes by loading the page in a browser and exercising the feature manually.
+
 ### Firebase Configuration
 
-- Firebase config is embedded in the HTML (around line 1310)
-- Current config ID: `1:832680598640:web:28854dad3330deb47be8b5`
-- The app initializes Firebase on `DOMContentLoaded` (line 2608)
-- Real-time listeners sync data from Firebase to the app (line 2566, 2581)
+- Firebase config is embedded in the HTML (`index.html:1575`)
+- Project: `simssangreferer` (Realtime Database region: `asia-southeast1`)
+- Firebase is initialized inside a `DOMContentLoaded` listener (near the end of the script, after `setupFirebaseListeners()`)
+- A second `DOMContentLoaded` listener further down wires up login/logout UI
+- Real-time listeners that sync `videos`, `globalReferer`, `globalBaseUrl`, `secondaryReferer`, and `miscNote` from Firebase are set up in `setupFirebaseListeners()` (`index.html:3325`)
 
 ## Architecture & Key Concepts
 
@@ -50,28 +53,33 @@ The app uses a two-tier data system:
 
 1. **Firebase Realtime Database** (primary)
    - `videos`: Array of video objects
-   - `globalReferer`: Single global referer string
-   - Real-time listeners keep in-memory `window.currentVideos` and `window.currentGlobalReferer` in sync
+   - `globalReferer`: Single global referer string appended to every video link by default
+   - `globalBaseUrl`: Optional global base URL prefix (used for the product-number copy link, not the video link)
+   - `secondaryReferer`: Alternate address value, prepended instead of `globalReferer` for videos that opt in via the per-video "보조 Referer 사용" checkbox (see below)
+   - `miscNote`: Free-text notes field with zero effect on link composition — pure storage, unrelated to any other logic
+   - Real-time listeners keep in-memory `window.currentVideos`, `window.currentGlobalReferer`, `window.currentGlobalBaseUrl`, `window.currentSecondaryReferer`, `window.currentMiscNote` in sync
 
-2. **localStorage** (fallback)
-   - Used when Firebase is not initialized
-   - Keys: `videos_list`, `global_referer`
-   - Automatic fallback if Firebase fails
+2. **localStorage** (fallback, also used as a write-through backup even when Firebase is active)
+   - Keys: `videos_list` (`STORAGE_KEY`), `global_referer` (`GLOBAL_REFERER_KEY`), `global_base_url` (`GLOBAL_BASE_URL_KEY`), `secondary_referer` (`SECONDARY_REFERER_KEY`), `misc_note` (`MISC_NOTE_KEY`)
+   - Automatic fallback if Firebase is not initialized (`firebaseInitialized` flag, `index.html:1587`)
 
 ### Video Data Structure
 
-Each video object contains:
+Each video object contains (actual field names, not the `videoLink`/`thumbnailUrl` names used elsewhere in older docs — see `addVideo()`/`updateVideo()` for the source of truth):
 ```javascript
 {
-  id: string,
-  videoLink: string,
+  id: number,                     // Date.now()
+  link: string,                   // Composed final link actually opened/copied (see Referer Requirement below)
+  originalLink: string,           // Raw link as typed into the form, before referer composition
   productNumber: string,
-  actors: string[],           // Can be parsed from hashtags or comma-separated
-  content: string,            // Content description
-  rating: number,             // 1-5 star rating
-  thumbnailUrl: string,       // Base64 encoded or external URL
-  subtitleUrl: string,        // External subtitle URL
-  subtitleEnabled: boolean    // Whether to show subtitles
+  actors: string[],               // Parsed from hashtags or comma-separated
+  content: string,                // Content description
+  rating: number,                 // 1-5 star rating
+  thumbnail: string,              // Base64 encoded or external URL
+  subtitleUrl: string,            // External subtitle URL
+  subtitleEnabled: boolean,       // Whether to show subtitles
+  useSecondaryReferer: boolean,   // If true, `link` = secondaryReferer + originalLink (no globalReferer)
+  checked: boolean                // Selection state for bulk delete
 }
 ```
 
@@ -80,13 +88,14 @@ Each video object contains:
 The application has three main sections:
 
 1. **Sidebar** (left panel)
-   - Actor list with counts (filtered dynamically)
+   - Actor list with counts (filtered dynamically, sortable by name/count)
    - Rating filter buttons (1-5 stars, All option)
+   - "2+ actors" filter toggle and subtitle filter dropdown
    - Collapsible sections
 
 2. **Main Content Area** (center/right)
    - Video list with pagination (24 items per page)
-   - Modals for add/edit video
+   - Modals for add/edit/detail-view of a video
    - Search functionality by product number
 
 3. **Control Buttons** (top)
@@ -95,74 +104,101 @@ The application has three main sections:
    - Import/Export JSON
    - Download list
 
+### Mobile Back-Button / History Navigation
+
+The app pushes `history.pushState` entries for filter changes, pagination, and modal opens, and handles the Android/mobile hardware back button through a single `popstate` listener, `handleMobileBackButton()` (`index.html:3439`). Its priority order: close an open modal → restore filter state encoded in `history.state` → reset an active filter to "전체" (all) → step back a page → confirm-and-exit the app (signs the user out first). Any new filter, pagination, or modal-opening code must push a matching history state (with a `skipHistory` escape hatch used while a `popstate` event is already being handled) or the back button will behave incorrectly on mobile.
+
 ## Key Functions & Their Purposes
 
 ### Data Management
-- `getVideos()` / `saveVideos(videos)` - Get/save video list with Firebase fallback
-- `getGlobalReferer()` / `saveGlobalReferer(referer)` - Manage global referer
-- `addVideo()` - Add new video with validation
-- `updateVideo()` - Update existing video
-- `deleteVideo(id)` - Remove video
+- `getVideos()` / `saveVideos(videos)` (`index.html:1710`, `1726`) - Get/save video list with Firebase fallback
+- `getGlobalReferer()` / `saveGlobalReferer(referer)` (`index.html:1630`, `1639`) - Manage global referer string
+- `getGlobalBaseUrl()` / `saveGlobalBaseUrl(baseUrl)` (`index.html:1650`, `1659`) - Manage global base URL prefix (product-link only)
+- `getSecondaryReferer()` / `saveSecondaryReferer(referer)` (`index.html:1670`, `1679`) - Manage the alternate/secondary referer address value
+- `getMiscNote()` / `saveMiscNote(note)` (`index.html:1690`, `1699`) - Free-text notes field, unrelated to any link-generation logic
+- `checkProductNumberDuplicate()` (`index.html:1759`) - Warn when a product number is already in use
+- `addVideo()` (`index.html:1785`) - Add new video with validation
+- `updateVideo()` (`index.html:1892`) - Update existing video
+- `deleteVideo(id)` (`index.html:2871`) - Remove video
 
-### UI Rendering
-- `renderList()` - Render filtered video list with pagination
-- `renderSidebar()` - Render actor/rating sidebar with counts
-- `filterByActor(actorName)` - Filter videos by actor
-- `filterByRating(rating)` - Filter videos by rating
-- `searchByProductNumber(query)` - Search by product number
-- `goToPage(page)` - Pagination
+### UI Rendering & Filtering
+- `renderList()` (`index.html:2386`) - Render filtered video list with pagination
+- `renderSidebar()` (`index.html:2190`) - Render actor/rating sidebar with counts
+- `getAllActors()` / `getAllRatings()` (`index.html:2071`, `2117`) - Build sidebar source data
+- `filterByActor(actorName)` (`index.html:2315`) - Filter videos by actor
+- `filterByRating(rating)` (`index.html:2339`) - Filter videos by rating
+- `toggleMultipleActorsFilter()` (`index.html:2296`) - Toggle "2+ actors" filter
+- `setSubtitleFilter(value)` (`index.html:2370`) - Filter by subtitle presence/enabled state
+- `searchByProductNumber(query)` (`index.html:2363`) - Search by product number
+- `showAllVideos(skipHistory)` (`index.html:2249`) - Reset all filters (triggered by header click)
+- `goToPage(page, skipHistory)` / `goToPreviousPage(skipHistory)` (`index.html:2578`, `3429`) - Pagination
 
-### Utilities
-- `fileToBase64(file)` - Convert image to base64 for storage
-- `handleThumbnailFile(file)` - Process thumbnail uploads
-- `importVideoList()` / `downloadList()` - Import/export JSON
-- `showMessage(text, type)` - Toast notification system
+### Modals & History
+- `openModal(id)` / `closeModal()` (`index.html:2639`, `2743`) - Video detail modal
+- `openAddVideoModal()` / `openEditModal()` / `closeAddVideoModal()` (`index.html:3243`, `3279`, `3273`) - Add/edit-video modal (shared form; `window.currentEditingVideoId` set → edit, `null` → add)
+- `openRefererModal()` / `closeRefererModal()` (`index.html:3184`, `3209`) - Referer settings modal
+- `handleMobileBackButton(event)` (`index.html:3439`) - Central `popstate` handler (see above)
+- `isAnyModalOpen()` (`index.html:3413`) - Used by the back-button handler to decide whether to close a modal first
+
+### Thumbnails & Import/Export
+- `fileToBase64(file)` / `handleThumbnailFile(file)` (`index.html:2021`, `3040`) - Convert/process thumbnail uploads
+- `setupDragAndDrop()` (`index.html:3074`) - Drag-and-drop thumbnail upload
+- `fetchImageFromUrl(url)` / `isValidImageUrl(url)` (`index.html:3149`, `3142`) - Fetch a thumbnail from a URL
+- `importVideoList()` / `downloadList()` (`index.html:2976`, `2900`) - Import/export JSON
+- `showMessage(text, type)` (`index.html:2952`) - Toast notification system
+
+### Auth
+- `handleLogin()` / `handleLogout()` (`index.html:3599`, `3643`) - Firebase Authentication sign in/out
+- Auth persistence is set to `SESSION` and the app force-signs-out on `beforeunload`, so closing the tab always requires a fresh login next time
 
 ## Important Implementation Details
 
 ### Referer Requirement
-- Global referer must be set before adding videos (checked in `addVideo()` at line 1415)
-- Referer is stored globally and used by all videos
+- Global referer must be set before adding videos (checked in `addVideo()`, `index.html:1785`) — this guard applies regardless of whether the video will actually use the global referer or the secondary one
+- Link composition in both `addVideo()` and `updateVideo()`:
+  ```javascript
+  const finalLink = useSecondaryReferer
+      ? getSecondaryReferer() + videoLink   // per-video opt-in, no global referer
+      : videoLink + globalReferer;          // default
+  ```
+  `useSecondaryReferer` comes from a checkbox (`id="useSecondaryReferer"`, default unchecked) rendered directly under the "동영상 링크" field in the add/edit modal, and is persisted per-video so re-opening the edit modal restores its state.
+- `globalBaseUrl` is unrelated to this — it's only used by `copyProductLink()` (`index.html:2785`) to build a product-number link (`baseUrl + productNumber`), separate from the video link itself.
+- The composed `link` is what every read path uses — `copyModalLink()`, `openModal()`'s displayed link, and `downloadList()`'s JSON export all read `video.link` directly rather than recomposing it, so changes here only need to happen in `addVideo()`/`updateVideo()`.
 
 ### Thumbnail Handling
 - Supports direct image upload, drag-drop, and URL fetching
 - Images are converted to base64 and stored in the database (Firebase/localStorage)
-- Large images can hit Firebase's quota limits - noted in error handling at line 1398
+- Large images can hit Firebase's quota limits — handled around `addVideo()`/`updateVideo()` error paths
 
 ### Search & Filter State
-- Current filter state: `currentFilter`, `currentRatingFilter`, `window.currentSearchQuery`
-- Sidebar updates dynamically based on current data
-- Actor counts reflect filtered results
+- Current filter state lives in module-level `let` variables: `currentFilter`, `currentRatingFilter`, `filterMultipleActors`, `currentSubtitleFilter`, plus `window.currentSearchQuery` and `window.currentVideoPage`
+- This state is also what gets serialized into `history.pushState` for back-button support (see above)
+- Sidebar updates dynamically based on current filtered data; actor counts reflect the filtered result set
 
 ### Pagination
 - 24 items per page (hardcoded)
-- Page state managed through DOM visibility
-- Search resets to page 1
-
-## Firebase Realtime Listeners
-
-Data synchronization happens through real-time listeners (set up around line 2566-2581):
-- Changes in Firebase instantly update the in-memory state
-- `renderList()` is called after data updates
-- If Firebase is unavailable, app falls back to localStorage
+- Page state managed through DOM visibility plus `window.currentVideoPage`
+- Search and most filter changes reset to page 1
 
 ## Common Development Tasks
 
 ### Adding a New Field to Videos
 1. Add input element to the modal (search for `<div class="modal" id="addVideoModal">`)
-2. Read value in `addVideo()` function
-3. Include in video object when saving
-4. Display in `renderList()` video item
+2. Read value in `addVideo()` and `updateVideo()`
+3. Include in the video object when saving
+4. Display in `renderList()` and the detail modal (`openModal()`)
 
 ### Modifying the Sidebar
-1. Actor/rating lists are generated from current videos in `renderSidebar()`
-2. Both use `getAllActors()` and `getAllRatings()` helper functions
-3. Sidebar filtering is handled by `filterByActor()` and `filterByRating()`
+1. Actor/rating lists are generated from current videos in `renderSidebar()`, sourced via `getAllActors()`/`getAllRatings()`
+2. Sidebar filtering is handled by `filterByActor()`, `filterByRating()`, `toggleMultipleActorsFilter()`, `setSubtitleFilter()`
+
+### Adding a New Filter or Modal
+- If it changes what's visible in the main list, push a `history.pushState` entry mirroring the existing filter calls, and extend `handleMobileBackButton()` to restore/undo it — otherwise the mobile hardware back button will skip over it.
 
 ### Styling Changes
 - All CSS is embedded in `<style>` tag near top of HTML
 - Uses custom properties for colors (gradients, shadows)
-- Responsive design with flex layout
+- Responsive design with flex layout; `isMobileDevice()` (`index.html:1576`) gates some mobile-only behavior
 
 ## Testing Notes
 
@@ -170,6 +206,7 @@ Data synchronization happens through real-time listeners (set up around line 256
 - Firebase must be available for persistent multi-user sync
 - Thumbnail uploads are limited by Firebase Storage quota
 - Actor hashtag parsing supports both `#actor1 #actor2` and comma-separated formats
+- No automated tests exist; validate by running a local server and testing in-browser, including the mobile back-button flow (Chrome DevTools device toolbar + Android back gesture emulation)
 
 ## Development Workflow (자동 적용)
 

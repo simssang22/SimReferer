@@ -130,6 +130,58 @@
 
 ---
 
+### Commit 4: "Referer 설정 - 보조 Referer 주소값 + 동영상별 체크박스 추가" (2026-08-15)
+
+#### 목적
+사이트/링크별로 "글로벌 Referer를 붙일지, 아니면 별도 주소값을 앞에 붙일지"를 동영상 단위로 선택할 수 있게 함.
+(처음에는 "제외 키워드"로 링크 안의 특정 단어를 자동 감지하는 방식을 시도했으나, 요구사항을 다시 들은 뒤 아래의 체크박스 방식으로 전면 교체함 — 제외 키워드 관련 코드/필드는 모두 삭제됨.)
+
+#### 구현 내용
+
+**① 보조 Referer 주소값 (`secondaryReferer`)**
+- 위치: Referer 설정 모달의 "보조 Referer 주소값" 입력란 (`<div class="modal" id="refererModal">` 안, 글로벌 Referer 텍스트 바로 아래)
+- 이 필드 자체는 기존과 동일한 저장/동기화 함수(`getSecondaryReferer()`/`saveSecondaryReferer()`)를 그대로 사용. localStorage 키 `secondary_referer`, Firebase 경로 `secondaryReferer`로 저장되고 `setupFirebaseListeners()`에서 실시간 동기화됨.
+
+**② 동영상별 "보조 Referer 사용" 체크박스**
+- 위치: 동영상 추가/수정 모달의 "동영상 링크" 입력란 바로 아래, `id="useSecondaryReferer"` 체크박스 (기본값: 미체크)
+- `addVideo()` / `updateVideo()`의 링크 합성 로직:
+  ```javascript
+  const finalLink = useSecondaryReferer
+      ? getSecondaryReferer() + videoLink   // 체크: 보조 Referer 주소값 + 동영상 링크 (글로벌 Referer 미포함)
+      : videoLink + globalReferer;          // 미체크(기본값): 기존처럼 링크 + 글로벌 Referer
+  ```
+- 즉, 이 체크박스를 켠 동영상만 "보조 Referer 주소값 + 원본 링크" 형태로 합쳐진 링크가 저장되고, 글로벌 Referer는 붙지 않음. 체크박스는 각 동영상 객체에 `useSecondaryReferer: boolean`으로 저장되어 수정 모달을 다시 열었을 때도 상태가 유지됨.
+- "링크복사"(`copyModalLink()`)나 상세보기(`openModal()`)는 항상 저장된 `video.link` 값을 그대로 사용하므로, 위 로직으로 합성해 저장해두면 복사 시에도 자동으로 올바른 링크가 복사됨 (기존 아키텍처와 동일한 패턴).
+
+#### 주의사항 / 확인된 사항
+- 기존에 저장된 동영상의 `link`/`useSecondaryReferer` 필드는 소급 적용되지 않음 (새로 추가/수정하는 영상부터 적용, 기존 영상은 `useSecondaryReferer`가 `undefined` → 체크 해제 상태로 취급됨)
+- JSON 가져오기/내보내기(`importVideoList()`/`downloadList()`)에는 별도 반영하지 않음 (요청 범위 밖, `useSecondaryReferer` 필드는 다른 필드처럼 그대로 딸려서 내보내짐)
+- Node 문법 검사(`new Function()`)로 스크립트 블록 전체 문법 오류 없음을 확인함
+- 실제 브라우저 동작 테스트(체크박스 토글, 링크 복사 결과 확인 등)는 사용자가 직접 진행 예정
+
+---
+
+### Commit 5: "Referer 설정 - 기타 메모 텍스트박스 추가" (2026-08-15)
+
+#### 목적
+링크 생성 로직과는 전혀 무관하게, 그냥 자유롭게 저장해 둘 수 있는 메모용 텍스트박스가 필요하다는 요청에 대응.
+
+#### 구현 내용
+- 위치: Referer 설정 모달의 "기타 메모" 입력란 (`<div class="modal" id="refererModal">` 안, "보조 Referer 주소값" 아래)
+- 기존 `globalReferer`/`secondaryReferer`와 완전히 동일한 패턴으로 구현됨:
+  - localStorage 키: `misc_note` (`MISC_NOTE_KEY`)
+  - Firebase 경로: `miscNote`
+  - 조회/저장 함수: `getMiscNote()` / `saveMiscNote(note)`
+  - `setupFirebaseListeners()`에 실시간 리스너 추가 → 다른 기기/탭에서 값이 바뀌면 즉시 반영
+  - `openRefererModal()`에서 모달 열 때 값 로드, `saveReferer()`에서 저장 시 (빈 값이어도) 항상 저장 — 나중에 비워서 초기화 가능
+- **중요**: 이 필드는 `addVideo()`/`updateVideo()`의 링크 합성 로직 어디에도 관여하지 않음. 순수하게 "저장되는 텍스트" 그 이상도 이하도 아님.
+
+#### 확인된 사항
+- Node 문법 검사(`new Function()`)로 스크립트 블록 전체 문법 오류 없음을 확인함
+- 실제 브라우저 동작 테스트는 사용자가 직접 진행 예정
+
+---
+
 ## 기술 아키텍처
 
 ### 데이터 흐름도
@@ -211,7 +263,8 @@
   rating: number,                // 평점 (1-5)
   thumbnailUrl: string,          // 썸네일 (Base64 또는 URL)
   subtitleUrl: string,           // 자막 URL
-  subtitleEnabled: boolean       // 자막 활성화 여부
+  subtitleEnabled: boolean,      // 자막 활성화 여부
+  useSecondaryReferer: boolean   // (2026-08-15 추가) true면 링크 = 보조 Referer 주소값 + 원본 링크(글로벌 Referer 미포함)
 }
 ```
 

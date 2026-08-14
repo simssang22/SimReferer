@@ -1225,7 +1225,7 @@
 </head>
 <body>
     <!-- 버전 정보 배지 -->
-    <div class="version-badge">Version: v1.0.33</div>
+    <div class="version-badge">Version: v1.0.34</div>
 
     <!-- 로그인 화면 -->
     <div id="loginScreen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; z-index: 10000;">
@@ -1415,6 +1415,30 @@
                     </div>
                 </div>
 
+                <div class="modal-section">
+                    <label class="modal-label">보조 Referer 주소값</label>
+                    <textarea
+                        id="secondaryReferer"
+                        placeholder="동영상 추가 시 '보조 Referer 사용'을 체크한 링크 앞에 붙일 주소값을 입력하세요"
+                        style="min-height: 100px;"
+                    ></textarea>
+                    <div style="font-size: 12px; color: #999; margin-top: 8px;">
+                        💡 동영상 추가/수정 화면에서 "보조 Referer 사용"을 체크하면 이 주소값 + 동영상 링크로 결합되어 저장되고, 글로벌 Referer는 붙지 않습니다
+                    </div>
+                </div>
+
+                <div class="modal-section">
+                    <label class="modal-label">기타 메모</label>
+                    <textarea
+                        id="miscNote"
+                        placeholder="링크 생성 로직과 무관하게 자유롭게 메모해 둘 텍스트를 입력하세요"
+                        style="min-height: 100px;"
+                    ></textarea>
+                    <div style="font-size: 12px; color: #999; margin-top: 8px;">
+                        💡 저장만 되며, 동영상 링크 생성 로직에는 전혀 사용되지 않습니다
+                    </div>
+                </div>
+
                 <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
                     <label class="modal-label">📥 목록 가져오기</label>
                     <input type="file" id="jsonFileInput" accept=".json" style="margin-bottom: 10px;">
@@ -1450,6 +1474,10 @@
                         id="videoLink"
                         placeholder="https://example.com/video"
                     >
+                    <label class="subtitle-checkbox-label" style="margin-top: 10px;">
+                        <input type="checkbox" id="useSecondaryReferer">
+                        보조 Referer 사용 (체크 시 보조 Referer 주소값 + 이 링크로 저장되고, 글로벌 Referer는 붙지 않습니다)
+                    </label>
                 </div>
 
                 <div class="modal-section-group">
@@ -1562,6 +1590,8 @@
         const STORAGE_KEY = 'videos_list';
         const GLOBAL_REFERER_KEY = 'global_referer';
         const GLOBAL_BASE_URL_KEY = 'global_base_url';
+        const SECONDARY_REFERER_KEY = 'secondary_referer';
+        const MISC_NOTE_KEY = 'misc_note';
 
         // 현재 필터 상태
         let currentFilter = '전체';
@@ -1632,6 +1662,46 @@
 
             if (firebaseInitialized && db) {
                 firebase.database().ref('globalBaseUrl').set(baseUrl)
+                    .catch(error => console.error('Firebase 저장 실패:', error));
+            }
+        }
+
+        // 보조 Referer 텍스트 가져오기 (Firebase 또는 localStorage)
+        function getSecondaryReferer() {
+            if (!firebaseInitialized) {
+                return localStorage.getItem(SECONDARY_REFERER_KEY) || '';
+            }
+            // Firebase 버전은 실시간 리스너로 관리됨
+            return window.currentSecondaryReferer || '';
+        }
+
+        // 보조 Referer 텍스트 저장 (Firebase + localStorage)
+        function saveSecondaryReferer(referer) {
+            localStorage.setItem(SECONDARY_REFERER_KEY, referer);
+            window.currentSecondaryReferer = referer;
+
+            if (firebaseInitialized && db) {
+                firebase.database().ref('secondaryReferer').set(referer)
+                    .catch(error => console.error('Firebase 저장 실패:', error));
+            }
+        }
+
+        // 기타 메모 가져오기 (Firebase 또는 localStorage)
+        function getMiscNote() {
+            if (!firebaseInitialized) {
+                return localStorage.getItem(MISC_NOTE_KEY) || '';
+            }
+            // Firebase 버전은 실시간 리스너로 관리됨
+            return window.currentMiscNote || '';
+        }
+
+        // 기타 메모 저장 (Firebase + localStorage)
+        function saveMiscNote(note) {
+            localStorage.setItem(MISC_NOTE_KEY, note);
+            window.currentMiscNote = note;
+
+            if (firebaseInitialized && db) {
+                firebase.database().ref('miscNote').set(note)
                     .catch(error => console.error('Firebase 저장 실패:', error));
             }
         }
@@ -1729,6 +1799,7 @@
             const rating = parseInt(document.getElementById('videoRating').value) || 0;
             const subtitleUrl = document.getElementById('subtitleUrl').value.trim();
             const subtitleEnabled = document.getElementById('subtitleEnabled').checked;
+            const useSecondaryReferer = document.getElementById('useSecondaryReferer').checked;
 
             // 유효성 검사
             if (!videoLink) {
@@ -1767,8 +1838,11 @@
                     .filter(name => name.length > 0);
             }
 
-            // referer 자동 추가 (링크 뒤에 붙이기)
-            const finalLink = videoLink + globalReferer;
+            // referer 적용: "보조 Referer 사용" 체크 시 보조 Referer 주소값 + 링크(글로벌 Referer 미포함),
+            // 아니면 기존처럼 링크 + 글로벌 Referer
+            const finalLink = useSecondaryReferer
+                ? getSecondaryReferer() + videoLink
+                : videoLink + globalReferer;
 
             // 썸네일 처리 (로컬 Base64 저장)
             let thumbnail = null;
@@ -1789,6 +1863,7 @@
                 thumbnail: thumbnail,
                 subtitleUrl: subtitleUrl,
                 subtitleEnabled: subtitleEnabled,
+                useSecondaryReferer: useSecondaryReferer,
                 checked: false
             };
 
@@ -1829,6 +1904,7 @@
             const rating = parseInt(document.getElementById('videoRating').value) || 0;
             const subtitleUrl = document.getElementById('subtitleUrl').value.trim();
             const subtitleEnabled = document.getElementById('subtitleEnabled').checked;
+            const useSecondaryReferer = document.getElementById('useSecondaryReferer').checked;
 
             // 유효성 검사
             if (!videoLink) {
@@ -1861,8 +1937,11 @@
                     .filter(name => name.length > 0);
             }
 
-            // referer 적용
-            const finalLink = videoLink + globalReferer;
+            // referer 적용: "보조 Referer 사용" 체크 시 보조 Referer 주소값 + 링크(글로벌 Referer 미포함),
+            // 아니면 기존처럼 링크 + 글로벌 Referer
+            const finalLink = useSecondaryReferer
+                ? getSecondaryReferer() + videoLink
+                : videoLink + globalReferer;
 
             // 썸네일 처리 (로컬 Base64 저장)
             let thumbnail = null;
@@ -1889,7 +1968,8 @@
                     originalLink: videoLink,
                     thumbnail: thumbnail,
                     subtitleUrl: subtitleUrl,
-                    subtitleEnabled: subtitleEnabled
+                    subtitleEnabled: subtitleEnabled,
+                    useSecondaryReferer: useSecondaryReferer
                 };
                 saveVideos(videos);
 
@@ -3110,6 +3190,14 @@
             if (baseUrlEl) {
                 baseUrlEl.value = getGlobalBaseUrl();
             }
+            const secondaryRefererEl = document.getElementById('secondaryReferer');
+            if (secondaryRefererEl) {
+                secondaryRefererEl.value = getSecondaryReferer();
+            }
+            const miscNoteEl = document.getElementById('miscNote');
+            if (miscNoteEl) {
+                miscNoteEl.value = getMiscNote();
+            }
             const refererModal = document.getElementById('refererModal');
             if (refererModal) {
                 refererModal.classList.add('show');
@@ -3125,6 +3213,8 @@
         function saveReferer() {
             const refererEl = document.getElementById('globalReferer');
             const baseUrlEl = document.getElementById('globalBaseUrl');
+            const secondaryRefererEl = document.getElementById('secondaryReferer');
+            const miscNoteEl = document.getElementById('miscNote');
 
             if (!refererEl) {
                 showMessage('❌ Referer 요소를 찾을 수 없습니다.', 'error');
@@ -3133,6 +3223,8 @@
 
             const referer = refererEl.value;
             const baseUrl = baseUrlEl ? baseUrlEl.value : '';
+            const secondaryReferer = secondaryRefererEl ? secondaryRefererEl.value : '';
+            const miscNote = miscNoteEl ? miscNoteEl.value : '';
 
             if (!referer) {
                 showMessage('❌ Referer 텍스트를 입력해주세요.', 'error');
@@ -3143,6 +3235,8 @@
             if (baseUrl) {
                 saveGlobalBaseUrl(baseUrl);
             }
+            saveSecondaryReferer(secondaryReferer);
+            saveMiscNote(miscNote);
             showMessage('✅ 설정이 저장되었습니다!', 'success');
         }
 
@@ -3162,6 +3256,7 @@
             document.getElementById('videoRating').value = '0';
             document.getElementById('subtitleUrl').value = '';
             document.getElementById('subtitleEnabled').checked = false;
+            document.getElementById('useSecondaryReferer').checked = false;
             document.getElementById('videoThumbnail').value = '';
             document.getElementById('addVideoMessage').textContent = '';
             clearThumbnail();
@@ -3205,6 +3300,7 @@
             document.getElementById('videoContent').value = video.content || '';
             document.getElementById('subtitleUrl').value = video.subtitleUrl || '';
             document.getElementById('subtitleEnabled').checked = video.subtitleEnabled || false;
+            document.getElementById('useSecondaryReferer').checked = video.useSecondaryReferer || false;
             setRating(video.rating || 0);
 
             // 썸네일 표시
@@ -3270,6 +3366,32 @@
                 }
             }, (error) => {
                 console.warn('Firebase 기본 URL 감시 실패:', error);
+            });
+
+            // 보조 Referer 텍스트 감시
+            firebase.database().ref('secondaryReferer').on('value', (snapshot) => {
+                const referer = snapshot.val() || '';
+                window.currentSecondaryReferer = referer;
+                const secondaryRefererEl = document.getElementById('secondaryReferer');
+                if (secondaryRefererEl) {
+                    secondaryRefererEl.value = referer;
+                }
+                console.log('📥 Firebase에서 보조 Referer 수신:', referer);
+            }, (error) => {
+                console.warn('Firebase 보조 Referer 감시 실패:', error);
+            });
+
+            // 기타 메모 감시
+            firebase.database().ref('miscNote').on('value', (snapshot) => {
+                const note = snapshot.val() || '';
+                window.currentMiscNote = note;
+                const miscNoteEl = document.getElementById('miscNote');
+                if (miscNoteEl) {
+                    miscNoteEl.value = note;
+                }
+                console.log('📥 Firebase에서 기타 메모 수신:', note);
+            }, (error) => {
+                console.warn('Firebase 기타 메모 감시 실패:', error);
             });
         }
 
