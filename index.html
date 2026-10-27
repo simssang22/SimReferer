@@ -1225,7 +1225,7 @@
 </head>
 <body>
     <!-- 버전 정보 배지 -->
-    <div class="version-badge">Version: v1.0.35</div>
+    <div class="version-badge">Version: v1.0.36</div>
 
     <!-- 로그인 화면 -->
     <div id="loginScreen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; z-index: 10000;">
@@ -1419,11 +1419,11 @@
                     <label class="modal-label">보조 Referer 주소값</label>
                     <textarea
                         id="secondaryReferer"
-                        placeholder="동영상 링크에 javremove가 포함된 경우 링크복사 시 앞에 붙일 주소값을 입력하세요"
+                        placeholder="동영상 링크에 v/가 포함된 경우 링크복사 시 앞에 붙일 주소값을 입력하세요"
                         style="min-height: 100px;"
                     ></textarea>
                     <div style="font-size: 12px; color: #999; margin-top: 8px;">
-                        💡 동영상 링크에 "javremove"가 포함되어 있으면 링크복사 시 이 주소값 + 동영상 링크로 복사됩니다
+                        💡 동영상 링크에 "v/"가 포함되어 있으면 링크복사 시 이 주소값 + 동영상 링크로 복사됩니다
                     </div>
                 </div>
 
@@ -2738,9 +2738,9 @@
             filterByActor(actorName);
         }
 
-        // 동영상 링크에 javremove가 포함되어 있으면 보조 Referer 주소값을 앞에 붙인 총 주소값을, 아니면 저장된 link를 반환
+        // 동영상 링크에 v/가 포함되어 있으면 보조 Referer 주소값을 앞에 붙인 총 주소값을, 아니면 저장된 link를 반환
         function getEffectiveLink(video) {
-            if (video.originalLink && video.originalLink.toLowerCase().includes('javremove')) {
+            if (video.originalLink && video.originalLink.toLowerCase().includes('v/')) {
                 return getSecondaryReferer() + video.originalLink;
             }
             return video.link;
