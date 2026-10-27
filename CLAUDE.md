@@ -55,7 +55,7 @@ The app uses a two-tier data system:
    - `videos`: Array of video objects
    - `globalReferer`: Single global referer string appended to every video link by default
    - `globalBaseUrl`: Optional global base URL prefix (used for the product-number copy link, not the video link)
-   - `secondaryReferer`: Alternate address value, prepended instead of `globalReferer` for videos that opt in via the per-video "보조 Referer 사용" checkbox (see below)
+   - `secondaryReferer`: Alternate address value. Not used in link composition at save time; instead `copyModalLink()` checks at copy time whether `video.originalLink` contains the substring `javremove` and, if so, copies `secondaryReferer + originalLink` instead of the stored `video.link` (see below)
    - `miscNote`: Free-text notes field with zero effect on link composition — pure storage, unrelated to any other logic
    - Real-time listeners keep in-memory `window.currentVideos`, `window.currentGlobalReferer`, `window.currentGlobalBaseUrl`, `window.currentSecondaryReferer`, `window.currentMiscNote` in sync
 
@@ -78,7 +78,6 @@ Each video object contains (actual field names, not the `videoLink`/`thumbnailUr
   thumbnail: string,              // Base64 encoded or external URL
   subtitleUrl: string,            // External subtitle URL
   subtitleEnabled: boolean,       // Whether to show subtitles
-  useSecondaryReferer: boolean,   // If true, `link` = secondaryReferer + originalLink (no globalReferer)
   checked: boolean                // Selection state for bulk delete
 }
 ```
@@ -154,16 +153,11 @@ The app pushes `history.pushState` entries for filter changes, pagination, and m
 ## Important Implementation Details
 
 ### Referer Requirement
-- Global referer must be set before adding videos (checked in `addVideo()`, `index.html:1785`) — this guard applies regardless of whether the video will actually use the global referer or the secondary one
-- Link composition in both `addVideo()` and `updateVideo()`:
-  ```javascript
-  const finalLink = useSecondaryReferer
-      ? getSecondaryReferer() + videoLink   // per-video opt-in, no global referer
-      : videoLink + globalReferer;          // default
-  ```
-  `useSecondaryReferer` comes from a checkbox (`id="useSecondaryReferer"`, default unchecked) rendered directly under the "동영상 링크" field in the add/edit modal, and is persisted per-video so re-opening the edit modal restores its state.
+- Global referer must be set before adding videos (checked in `addVideo()`, `index.html:1785`)
+- Link composition in both `addVideo()` and `updateVideo()` is simply `const finalLink = videoLink + globalReferer;` — there is no per-video opt-out of the global referer at save time.
 - `globalBaseUrl` is unrelated to this — it's only used by `copyProductLink()` (`index.html:2785`) to build a product-number link (`baseUrl + productNumber`), separate from the video link itself.
-- The composed `link` is what every read path uses — `copyModalLink()`, `openModal()`'s displayed link, and `downloadList()`'s JSON export all read `video.link` directly rather than recomposing it, so changes here only need to happen in `addVideo()`/`updateVideo()`.
+- The composed `link` is what most read paths use — `openModal()`'s displayed link and `downloadList()`'s JSON export read `video.link` directly rather than recomposing it.
+- `getEffectiveLink(video)` (`index.html:2741`) is the shared exception path: it checks whether `video.originalLink` (case-insensitively) contains `javremove`, and if so returns `secondaryReferer + originalLink` instead of `video.link`. Used by `copyModalLink()` (what gets copied to the clipboard) and by `openModal()`'s displayed/linked `modalLink` (the detail-view post). The stored `link` field itself is never rewritten by this check.
 
 ### Thumbnail Handling
 - Supports direct image upload, drag-drop, and URL fetching

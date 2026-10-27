@@ -1225,7 +1225,7 @@
 </head>
 <body>
     <!-- 버전 정보 배지 -->
-    <div class="version-badge">Version: v1.0.34</div>
+    <div class="version-badge">Version: v1.0.35</div>
 
     <!-- 로그인 화면 -->
     <div id="loginScreen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; z-index: 10000;">
@@ -1419,11 +1419,11 @@
                     <label class="modal-label">보조 Referer 주소값</label>
                     <textarea
                         id="secondaryReferer"
-                        placeholder="동영상 추가 시 '보조 Referer 사용'을 체크한 링크 앞에 붙일 주소값을 입력하세요"
+                        placeholder="동영상 링크에 javremove가 포함된 경우 링크복사 시 앞에 붙일 주소값을 입력하세요"
                         style="min-height: 100px;"
                     ></textarea>
                     <div style="font-size: 12px; color: #999; margin-top: 8px;">
-                        💡 동영상 추가/수정 화면에서 "보조 Referer 사용"을 체크하면 이 주소값 + 동영상 링크로 결합되어 저장되고, 글로벌 Referer는 붙지 않습니다
+                        💡 동영상 링크에 "javremove"가 포함되어 있으면 링크복사 시 이 주소값 + 동영상 링크로 복사됩니다
                     </div>
                 </div>
 
@@ -1474,10 +1474,6 @@
                         id="videoLink"
                         placeholder="https://example.com/video"
                     >
-                    <label class="subtitle-checkbox-label" style="margin-top: 10px;">
-                        <input type="checkbox" id="useSecondaryReferer">
-                        보조 Referer 사용 (체크 시 보조 Referer 주소값 + 이 링크로 저장되고, 글로벌 Referer는 붙지 않습니다)
-                    </label>
                 </div>
 
                 <div class="modal-section-group">
@@ -1799,7 +1795,6 @@
             const rating = parseInt(document.getElementById('videoRating').value) || 0;
             const subtitleUrl = document.getElementById('subtitleUrl').value.trim();
             const subtitleEnabled = document.getElementById('subtitleEnabled').checked;
-            const useSecondaryReferer = document.getElementById('useSecondaryReferer').checked;
 
             // 유효성 검사
             if (!videoLink) {
@@ -1838,11 +1833,7 @@
                     .filter(name => name.length > 0);
             }
 
-            // referer 적용: "보조 Referer 사용" 체크 시 보조 Referer 주소값 + 링크(글로벌 Referer 미포함),
-            // 아니면 기존처럼 링크 + 글로벌 Referer
-            const finalLink = useSecondaryReferer
-                ? getSecondaryReferer() + videoLink
-                : videoLink + globalReferer;
+            const finalLink = videoLink + globalReferer;
 
             // 썸네일 처리 (로컬 Base64 저장)
             let thumbnail = null;
@@ -1863,7 +1854,6 @@
                 thumbnail: thumbnail,
                 subtitleUrl: subtitleUrl,
                 subtitleEnabled: subtitleEnabled,
-                useSecondaryReferer: useSecondaryReferer,
                 checked: false
             };
 
@@ -1904,7 +1894,6 @@
             const rating = parseInt(document.getElementById('videoRating').value) || 0;
             const subtitleUrl = document.getElementById('subtitleUrl').value.trim();
             const subtitleEnabled = document.getElementById('subtitleEnabled').checked;
-            const useSecondaryReferer = document.getElementById('useSecondaryReferer').checked;
 
             // 유효성 검사
             if (!videoLink) {
@@ -1937,11 +1926,7 @@
                     .filter(name => name.length > 0);
             }
 
-            // referer 적용: "보조 Referer 사용" 체크 시 보조 Referer 주소값 + 링크(글로벌 Referer 미포함),
-            // 아니면 기존처럼 링크 + 글로벌 Referer
-            const finalLink = useSecondaryReferer
-                ? getSecondaryReferer() + videoLink
-                : videoLink + globalReferer;
+            const finalLink = videoLink + globalReferer;
 
             // 썸네일 처리 (로컬 Base64 저장)
             let thumbnail = null;
@@ -1968,8 +1953,7 @@
                     originalLink: videoLink,
                     thumbnail: thumbnail,
                     subtitleUrl: subtitleUrl,
-                    subtitleEnabled: subtitleEnabled,
-                    useSecondaryReferer: useSecondaryReferer
+                    subtitleEnabled: subtitleEnabled
                 };
                 saveVideos(videos);
 
@@ -2699,7 +2683,8 @@
             }
 
             // 링크
-            document.getElementById('modalLink').innerHTML = `<a href="${escapeHtml(video.link)}" target="_blank" style="color: #667eea; text-decoration: none;">${escapeHtml(video.link)}</a>`;
+            const displayLink = getEffectiveLink(video);
+            document.getElementById('modalLink').innerHTML = `<a href="${escapeHtml(displayLink)}" target="_blank" style="color: #667eea; text-decoration: none;">${escapeHtml(displayLink)}</a>`;
 
             // 자막 섹션
             const subtitleSection = document.getElementById('modalSubtitleSection');
@@ -2753,6 +2738,14 @@
             filterByActor(actorName);
         }
 
+        // 동영상 링크에 javremove가 포함되어 있으면 보조 Referer 주소값을 앞에 붙인 총 주소값을, 아니면 저장된 link를 반환
+        function getEffectiveLink(video) {
+            if (video.originalLink && video.originalLink.toLowerCase().includes('javremove')) {
+                return getSecondaryReferer() + video.originalLink;
+            }
+            return video.link;
+        }
+
         // 모달 링크 복사
         function copyModalLink(id) {
             const videos = getVideos();
@@ -2764,7 +2757,7 @@
                 return;
             }
 
-            const linkToCopy = video.link;
+            const linkToCopy = getEffectiveLink(video);
 
             // 방법 1: Clipboard API (최신 방식)
             if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -3256,7 +3249,6 @@
             document.getElementById('videoRating').value = '0';
             document.getElementById('subtitleUrl').value = '';
             document.getElementById('subtitleEnabled').checked = false;
-            document.getElementById('useSecondaryReferer').checked = false;
             document.getElementById('videoThumbnail').value = '';
             document.getElementById('addVideoMessage').textContent = '';
             clearThumbnail();
@@ -3300,7 +3292,6 @@
             document.getElementById('videoContent').value = video.content || '';
             document.getElementById('subtitleUrl').value = video.subtitleUrl || '';
             document.getElementById('subtitleEnabled').checked = video.subtitleEnabled || false;
-            document.getElementById('useSecondaryReferer').checked = video.useSecondaryReferer || false;
             setRating(video.rating || 0);
 
             // 썸네일 표시
